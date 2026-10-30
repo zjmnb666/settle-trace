@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="grid4">
+  <div class="stat">
+    <div class="k">语料文档</div>
+    <div class="v">{{ s.docs }}</div>
+    <div class="u">份（已停用的不计入）</div>
+  </div>
+  <div class="stat">
+    <div class="k">切片总数</div>
+    <div class="v">{{ s.chunks }}</div>
+    <div class="u">条，已建向量索引</div>
+  </div>
+  <div class="stat">
+    <div class="k">今日回答</div>
+    <div class="v">{{ s.today_msgs }}</div>
+    <div class="u">条（按回答计）</div>
+  </div>
+  <div class="stat">
+    <div class="k">待处理标记</div>
+    <div class="v">{{ s.flags }}</div>
+    <div class="u">条审计标记未撤销</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>系统状态</h2>
+  <table>
+    <tr><th style="width:180px">项</th><th>当前值</th></tr>
+    <tr><td>生效提示词版本</td><td>{% if s.prompt_version %}v{{ s.prompt_version }}{% else %}<span class="tag red">未配置</span>{% endif %}</td></tr>
+    <tr><td>回答模型</td><td>{{ s.llm_provider }} / {{ s.llm_model }}</td></tr>
+    <tr><td>向量模型</td><td>{{ s.emb_provider }} / {{ s.emb_model }}（{{ s.emb_dim }} 维）</td></tr>
+    <tr><td>检索索引</td><td>{% if s.bm25 %}BM25 已加载 {{ s.bm25 }} 条{% else %}<span class="tag red">未加载</span>{% endif %}</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>这轮试点要守住的四件事</h2>
+  <table>
+    <tr><td style="width:200px">费用来源可追溯</td><td>每条结论都能定位到 文件 · 标题 · 字符区间，无来源不成立</td></tr>
+    <tr><td>疑似重复不自动删除</td><td>系统只提示，人工裁定后才写结论，原行与原版本永久保留</td></tr>
+    <tr><td>三处必须人工</td><td>疑点裁定、正式确认、审批放行，模型不得代签</td></tr>
+    <tr><td>不做的事</td><td>不付款、不做税务判定、不出具带签章正式单据、不写回现有系统</td></tr>
+  </table>
+  <p class="muted" style="margin-top:10px">
+    以上四条同时约束对话助手与管理后台：后台改提示词也不能删掉这些限制。
+  </p>
+</div>
+
+{% endblock %}

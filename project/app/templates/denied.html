@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2>没有访问权限</h2>
+  <p class="muted">
+    当前账号（{{ user.username }} · {{ user.role }}）没有访问该页面的权限。
+    如需开通，请联系系统管理员调整角色或后台能力。
+  </p>
+  <p style="margin-top:14px"><a class="btn" href="/admin">返回概览</a></p>
+</div>
+{% endblock %}

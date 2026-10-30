@@ -106,6 +106,15 @@ class Settings:
     # 单个回答的最大输出长度
     llm_max_tokens: int = _int("LLM_MAX_TOKENS", 800)
 
+    # ---------- 管理后台 ----------
+    # JWT 签名密钥：生产必须换掉，且不能提交到仓库（.env 已忽略）
+    jwt_secret: str = _env("JWT_SECRET", "")
+    # 首次启动时若 admin_user 为空，用它创建 admin 账号（只生效一次）
+    admin_init_password: str = _env("ADMIN_INIT_PASSWORD", "")
+    admin_init_username: str = _env("ADMIN_INIT_USERNAME", "admin")
+    # 上传文件大小上限（字节），默认 10MB
+    max_upload_bytes: int = _int("MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
+
     # ---------- 其他 ----------
     log_level: str = _env("LOG_LEVEL", "INFO")
 

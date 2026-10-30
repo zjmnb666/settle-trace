@@ -93,6 +93,34 @@ LLM_API_KEY=sk-xxxxxxxx
 
 > `.env` 已被 `.gitignore` 忽略，不会入库。系统环境变量优先于 `.env`，便于临时覆盖。
 
+## 管理后台（阶段 3 · 批次 1 已完成）
+
+| 页面 | 路径 | 说明 |
+|---|---|---|
+| 登录 | `/admin/login` | 账号密码 → JWT(HttpOnly Cookie) + CSRF token |
+| 概览 | `/admin` | 语料数 / 切片数 / 今日回答 / 待处理标记 + 系统状态 |
+
+接口：`POST /admin/api/login`、`POST /admin/api/logout`、`GET /admin/api/me`。
+
+**初始账号**：首次启动且 `admin_user` 为空时，用 `.env` 里的
+`ADMIN_INIT_USERNAME` / `ADMIN_INIT_PASSWORD` 创建管理员（只执行一次）。
+之后再改 `.env` 不会覆盖已有密码。
+
+**必须先配**：
+```ini
+JWT_SECRET=<随机串，可用 python -c "import secrets;print(secrets.token_urlsafe(36))" 生成>
+ADMIN_INIT_PASSWORD=<你自己的密码>
+```
+
+**安全要点**
+- JWT 放 HttpOnly Cookie，8 小时过期；每次请求回库校验，账号被禁用立即失效
+- 所有写操作要带 `X-CSRF-Token`，与 `csrf_token` Cookie 双重提交校验
+- 登录失败统一返回 E4001，不区分"账号不存在"与"密码错误"（防用户名枚举）
+- 登录限流：同 IP 60 秒 5 次
+- 角色 → 能力映射见 `app/api/admin_deps.py` 的 `CAPABILITIES`；`is_admin` 为总开关
+
+**数据库**：先执行 `python -m app.admin_migrate`（建 4 张表 + 写提示词 v1 + 回填历史切片）。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |

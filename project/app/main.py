@@ -22,6 +22,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from .api.admin_auth import bootstrap_admin
+from .api.admin_auth import router as admin_auth_router
+from .api.admin_pages import router as admin_pages_router
 from .api.chat import router as chat_router
 from .core import db
 from .core.config import settings
@@ -44,6 +47,8 @@ async def lifespan(app: FastAPI):
     # 说清楚原因。理由：原型阶段常见"数据库还没起"，让页面先能打开、错误可见，
     # 比整个服务起不来更好排查。生产环境如需硬失败，把下面改成 raise 即可。
     try:
+        if not settings.jwt_secret:
+            log.error("未配置 JWT_SECRET，管理后台无法登录；请在 .env 中添加 JWT_SECRET=<随机串>")
         await db.init_pool()
         chunks, dim = await db.check_ready()
         async with db.pool().acquire() as conn:
@@ -51,6 +56,7 @@ async def lifespan(app: FastAPI):
         log.info("启动完成：chunk=%s，向量维度=%s，BM25 载入=%s", chunks, dim, loaded)
         if chunks == 0:
             log.warning("chunk 表为空，请先执行 python -m app.ingest --corpus <文件>")
+        await bootstrap_admin()
     except AppError as e:
         log.error("启动自检未通过 [%s] %s —— 服务可访问，但检索与问答不可用", e.code, e.message)
     yield
@@ -61,6 +67,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SettleTrace 对话入口", version="0.1.0", lifespan=lifespan)
 app.include_router(chat_router)
+app.include_router(admin_auth_router)
+app.include_router(admin_pages_router)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token }}">
+<title>登录 · SettleTrace 管理后台</title>
+<style>
+  :root {
+    --c-bg: #f5f7fa; --c-panel: #fff; --c-text: #1f2937; --c-sub: #6b7280;
+    --c-line: #e5e7eb; --c-primary: #1565c0; --c-primary-weak: #e8f0fb;
+    --c-danger: #b42318; --c-danger-bg: #fef3f2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--c-bg); color: var(--c-text);
+    font: 14px/1.65 "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  }
+  .box {
+    width: 360px; background: var(--c-panel); border: 1px solid var(--c-line);
+    border-radius: 10px; padding: 28px 28px 24px;
+  }
+  .box h1 { font-size: 18px; margin: 0 0 4px; }
+  .box p.sub { margin: 0 0 22px; font-size: 12px; color: var(--c-sub); }
+  label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--c-sub); }
+  input {
+    width: 100%; font: inherit; padding: 9px 11px; margin-bottom: 14px;
+    border: 1px solid var(--c-line); border-radius: 6px;
+  }
+  input:focus { outline: 2px solid var(--c-primary-weak); border-color: var(--c-primary); }
+  button {
+    width: 100%; font: inherit; font-weight: 600; color: #fff; background: var(--c-primary);
+    border: none; border-radius: 6px; padding: 10px; cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  .err {
+    display: none; margin-bottom: 14px; padding: 9px 11px; border-radius: 6px;
+    background: var(--c-danger-bg); color: var(--c-danger); font-size: 13px;
+    border: 1px solid #f6cfcb;
+  }
+  .err.on { display: block; }
+  .tip { margin-top: 16px; font-size: 12px; color: var(--c-sub); line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>管理后台</h1>
+  <p class="sub">SettleTrace · 贸易服务结算与费用追溯</p>
+
+  <div class="err" id="err"></div>
+
+  <form id="loginForm">
+    <label for="u">账号</label>
+    <input id="u" name="username" autocomplete="username" autofocus>
+    <label for="p">密码</label>
+    <input id="p" name="password" type="password" autocomplete="current-password">
+    <button type="submit" id="btn">登录</button>
+  </form>
+
+  <div class="tip">
+    仅限授权人员使用。登录行为将被记录。<br>
+    忘记密码请联系系统管理员重置。
+  </div>
+</div>
+
+<script>
+  const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+  const err = document.getElementById('err');
+  const btn = document.getElementById('btn');
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.classList.remove('on');
+    btn.disabled = true;
+    btn.textContent = '登录中…';
+    try {
+      const resp = await fetch('/admin/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+        body: JSON.stringify({
+          username: document.getElementById('u').value.trim(),
+          password: document.getElementById('p').value,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.message || '登录失败');
+      location.href = '/admin';
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.add('on');
+      btn.disabled = false;
+      btn.textContent = '登录';
+    }
+  });
+</script>
+</body>
+</html>
