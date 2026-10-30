@@ -12,8 +12,13 @@ import os
 from pathlib import Path
 
 
+DOTENV_PATH: Path | None = None          # 实际读到的 .env 路径（没有则为 None）
+_DOTENV_KEYS: set[str] = set()           # 从 .env 里读到的键，用于区分来源
+
+
 def _load_dotenv() -> None:
     """加载 .env。已存在的环境变量优先，不被文件覆盖。"""
+    global DOTENV_PATH
     candidates = [Path.cwd() / ".env", Path(__file__).resolve().parents[2] / ".env"]
     for path in candidates:
         if not path.is_file():
@@ -29,6 +34,8 @@ def _load_dotenv() -> None:
                 # 已设置的环境变量优先（便于命令行临时覆盖 .env）
                 if key and key not in os.environ:
                     os.environ[key] = value
+                    _DOTENV_KEYS.add(key)
+            DOTENV_PATH = path
         except OSError:
             continue
         break        # 只读第一个存在的 .env
@@ -57,6 +64,15 @@ class Settings:
         "DATABASE_URL",
         "postgresql://settletrace:settletrace@localhost:5432/settletrace",
     )
+
+    @property
+    def database_url_source(self) -> str:
+        """连接串从哪来：环境变量 / .env / 默认值。自检脚本靠它说清楚问题所在。"""
+        if "DATABASE_URL" in _DOTENV_KEYS:
+            return f".env 文件（{DOTENV_PATH}）"
+        if os.getenv("DATABASE_URL"):
+            return "系统环境变量"
+        return "默认值（未配置 .env）"
 
     # ---------- 检索 ----------
     # 单片最大字符数与重叠：与阶段 1 保持一致，避免换库后切片行为变了

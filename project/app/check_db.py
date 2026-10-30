@@ -23,7 +23,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
 
-from .core.config import settings
+from .core.config import DOTENV_PATH, settings
 
 OK = "[通过]"
 BAD = "[失败]"
@@ -51,8 +51,11 @@ async def check() -> int:
 
     # ---- 1. 配置 ----
     print(f"\n[1/8] 连接串：{mask(settings.database_url)}")
-    if "sslmode=require" not in settings.database_url and \
-            "localhost" not in settings.database_url and "127.0.0.1" not in settings.database_url:
+    print(f"      来源：{settings.database_url_source}")
+    if "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
+        print(f"{WARN} 连的是本机地址。如果你选的是云 PG，说明 .env 里的 DATABASE_URL 还没替换")
+        print(f"      编辑 {DOTENV_PATH or '项目下的 .env'}，把 DATABASE_URL 改成 Supabase 的连接串")
+    elif "sslmode=require" not in settings.database_url:
         print(f"{WARN} 连的是远程库但没带 ?sslmode=require，可能报 SSL 错误")
     print(f"      向量维度 EMB_DIM = {settings.emb_dim}"
           f"（向量模型 {settings.emb_provider}/{settings.emb_model}）")
