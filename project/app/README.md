@@ -25,39 +25,63 @@ app/
 └── static/index.html    单页前端（原生 JS）
 ```
 
-## 启动（三步）
+## 启动
+
+### 第一步：准备数据库（二选一）
+
+**方式 A · 云 PostgreSQL（无需 Docker，推荐给临时验证）**
+
+Supabase / Neon 免费额度都自带 pgvector。
+
+1. 建项目 → 在 SQL Editor 里整段执行 [`sql/schema.sql`](../sql/schema.sql)
+2. 复制连接串，写进 `project/.env`：
 
 ```bash
-cd project
+cp .env.example .env
+# 编辑 .env，把 DATABASE_URL 换成你的连接串（注意三点）
+DATABASE_URL="postgresql://postgres.abcdefgh:密码@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require"
+```
 
-# ① 起数据库（PG16 + pgvector，首次会自动建表）
-docker compose up -d
+> 云 PG 三个坑：① 必须带 `?sslmode=require`；② Supabase 用 **Session pooler 5432**，不要用 Transaction pooler 6543；③ 用户名是 `postgres.项目ref`，不是 `postgres`。
 
-# ② 灌语料（先装依赖）
+**方式 B · 本地 Docker**
+
+```bash
+docker compose up -d          # 镜像 pgvector/pgvector:pg16，首次会自动建表
+docker compose ps             # 等 db 变成 healthy
+```
+
+Docker 需要 WSL2 后端；Windows 家庭版要开 hypervisor（`bcdedit /set hypervisorlaunchtype auto` + 重启）。
+
+### 第二步：自检
+
+```bash
 pip install -r requirements.txt
-python -m app.ingest --corpus ../discovery-report.md
+python -m app.check_db
+```
 
-# ③ 起服务
+它会按 8 项逐条检查并给出下一步动作：连接串（密码打码）→ 能否连上 → 服务端版本 → pgvector 扩展 → 4 张表 → 向量维度是否匹配 → 切片数据量 → 抽样一条。**任何一步失败都直接告诉你该执行什么命令**，比在 uvicorn 里看堆栈快得多。
+
+### 第三步：灌语料并启动
+
+```bash
+python -m app.ingest --corpus ../discovery-report.md
 uvicorn app.main:app --reload --port 8000
 # 浏览器打开 http://127.0.0.1:8000
 ```
 
 默认 `LLM_PROVIDER=mock`，不联网也能看到完整链路（回答是占位文本，会明确标注）。
-接真实模型：
+接真实模型：改 `.env` 里的 `LLM_PROVIDER / LLM_MODEL / LLM_BASE_URL / LLM_API_KEY` 即可。
 
 ```bash
-# Git Bash
-LLM_PROVIDER=deepseek LLM_MODEL=deepseek-chat \
-LLM_BASE_URL=https://api.deepseek.com/v1 LLM_API_KEY=sk-xxx \
-uvicorn app.main:app --port 8000
+# DeepSeek 示例（.env）
+LLM_PROVIDER=deepseek
+LLM_MODEL=deepseek-chat
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_API_KEY=sk-xxxxxxxx
 ```
 
-```powershell
-# PowerShell（前缀写法在这里不生效）
-$env:LLM_PROVIDER="deepseek"; $env:LLM_MODEL="deepseek-chat"
-$env:LLM_BASE_URL="https://api.deepseek.com/v1"; $env:LLM_API_KEY="sk-xxx"
-uvicorn app.main:app --port 8000
-```
+> `.env` 已被 `.gitignore` 忽略，不会入库。系统环境变量优先于 `.env`，便于临时覆盖。
 
 ## 接口
 
@@ -67,6 +91,8 @@ uvicorn app.main:app --port 8000
 | GET | `/api/sessions` | 会话列表 |
 | GET | `/api/sessions/{id}/messages` | 整段会话（含引用），刷新页面恢复用 |
 | GET | `/api/health` | 数据库 / 切片数 / BM25 / 模型配置 |
+
+命令行工具：`python -m app.check_db`（连接与建表自检）、`python -m app.ingest --corpus <文件>`（灌语料）。
 
 SSE 事件顺序：`meta` → `status`(检索) → `status`(生成) → `delta`×N → `citation`×K → `done`，
 任何环节失败都会发 `error`（带 code / message / request_id）。
@@ -100,6 +126,8 @@ SSE 事件顺序：`meta` → `status`(检索) → `status`(生成) → `delta`�
 
 - 全部模块编译通过、`app.main` 可导入
 - 路由可达：`/` 返回页面 200，`/api/health` 返回结构化状态
+- `python -m app.check_db`：连接失败时输出打码连接串 + 四条排查提示，退出码 1
+- `.env` 加载：写 `EMB_DIM=1536` 后配置生效，删除后回落 1024；命令行环境变量优先于 `.env`
 - 参数校验：空问题→400/E1005、超长→413/E1003、非法角色→400/E1001
 - 数据库不可用时：`/api/health` 显示原因、`/api/chat` 在流内返回 `E3004`、`/api/sessions` 返回 503
 - **完整 SSE 流**（打桩 DB 与检索）：`meta → status → status → delta×5 → citation×2 → done`，

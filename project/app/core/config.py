@@ -1,9 +1,40 @@
 # -*- coding: utf-8 -*-
-"""配置集中管理。所有可变项都从环境变量读取，代码里不写死任何密钥与地址。"""
+"""配置集中管理。所有可变项都从环境变量读取，代码里不写死任何密钥与地址。
+
+支持 .env：优先读系统环境变量，其次读项目根的 .env。
+这样本地开发把 DATABASE_URL / API Key 写进 .env 即可，不用每次 set。
+（自己实现解析，避免为一个小功能引入 python-dotenv）
+"""
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+
+def _load_dotenv() -> None:
+    """加载 .env。已存在的环境变量优先，不被文件覆盖。"""
+    candidates = [Path.cwd() / ".env", Path(__file__).resolve().parents[2] / ".env"]
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            for raw in path.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                # 已设置的环境变量优先（便于命令行临时覆盖 .env）
+                if key and key not in os.environ:
+                    os.environ[key] = value
+        except OSError:
+            continue
+        break        # 只读第一个存在的 .env
+
+
+_load_dotenv()
 
 
 def _env(key: str, default: str) -> str:
