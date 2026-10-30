@@ -1,0 +1,30 @@
+# SettleTrace 对话入口 · 本地依赖
+# 只用于开发期跑 PostgreSQL 16 + pgvector，不参与应用部署。
+#
+# 启动： docker compose up -d
+# 查看： docker compose logs -f db
+# 停掉： docker compose down          （保留数据）
+# 清空： docker compose down -v       （连数据一起删）
+
+services:
+  db:
+    # 官方带 pgvector 的 PG16 镜像，省去自己编译扩展
+    image: pgvector/pgvector:pg16
+    container_name: settletrace-db
+    environment:
+      POSTGRES_USER: settletrace
+      POSTGRES_PASSWORD: settletrace
+      POSTGRES_DB: settletrace
+      # 中文排序与大小写：用 C 排序规则，避免不同宿主机 locale 差异导致索引不一致
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.pgdata:/var/lib/postgresql/data
+      # 首次启动自动建表（只执行一次；改了 schema 要 down -v 重来）
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U settletrace -d settletrace"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

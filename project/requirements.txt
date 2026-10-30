@@ -1,0 +1,11 @@
+# SettleTrace 对话入口 · 依赖
+# Python 3.10+（实测 3.13）
+
+fastapi==0.115.6          # Web 框架
+uvicorn[standard]==0.34.0  # ASGI 服务器
+pydantic==2.10.4          # 请求/响应模型（fastapi 已依赖，显式钉版本便于复现）
+asyncpg==0.30.0           # PostgreSQL 异步驱动（直接写 SQL，不引 ORM）
+httpx==0.28.1             # LLM 流式调用
+numpy==2.2.1              # 向量运算
+rank-bm25==0.2.2          # 字面检索
+jieba==0.42.1             # 中文分词

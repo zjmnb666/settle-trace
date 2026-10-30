@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SettleTrace · 结算口径问答</title>
+<style>
+  /* ---------------------------------------------------------------------------
+     设计约定：信息密度优先，不用大圆角、不用阴影堆叠。
+     正文 15px / 1.7，行宽限制在 760px，超过这个宽度中文阅读会累。
+     --------------------------------------------------------------------------- */
+  :root {
+    --c-bg: #f5f7fa;
+    --c-panel: #ffffff;
+    --c-text: #1f2937;
+    --c-sub: #6b7280;
+    --c-line: #e5e7eb;
+    --c-primary: #1565c0;
+    --c-primary-weak: #e8f0fb;
+    --c-danger: #b42318;
+    --c-danger-bg: #fef3f2;
+    --c-warn: #92651b;
+    --c-warn-bg: #fffaeb;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--c-bg);
+    color: var(--c-text);
+    font: 15px/1.7 "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 860px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--c-panel);
+    border-left: 1px solid var(--c-line);
+    border-right: 1px solid var(--c-line);
+  }
+
+  /* ---------- 顶部 ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--c-line);
+    flex: 0 0 auto;
+  }
+  .brand { font-weight: 700; font-size: 16px; letter-spacing: .01em; }
+  .brand small { display: block; font-weight: 400; font-size: 12px; color: var(--c-sub); }
+  .spacer { flex: 1; }
+  .pill {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    background: var(--c-primary-weak); color: var(--c-primary);
+    border: 1px solid #cfe0f7; white-space: nowrap;
+  }
+  .pill.bad { background: var(--c-danger-bg); color: var(--c-danger); border-color: #f6cfcb; }
+  .btn {
+    font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer;
+    background: #fff; color: var(--c-text);
+    border: 1px solid var(--c-line); border-radius: 6px;
+  }
+  .btn:hover { border-color: #c7ccd4; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ---------- 消息区 ---------- */
+  .stream {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 20px 20px 8px;
+    scroll-behavior: smooth;
+  }
+  .msg { display: flex; margin-bottom: 18px; }
+  .msg.user { justify-content: flex-end; }
+  .bubble {
+    max-width: 84%;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user .bubble { background: var(--c-primary-weak); border: 1px solid #d6e4f7; }
+  .msg.assistant .bubble {
+    background: #fff; border: 1px solid var(--c-line);
+    /* 左侧色条：一眼区分"系统说的"和"我说的" */
+    border-left: 3px solid var(--c-primary);
+  }
+  .msg .who {
+    font-size: 12px; color: var(--c-sub); margin-bottom: 4px;
+  }
+  .caret {
+    display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+    background: var(--c-primary); vertical-align: -2px;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* 正文里的引用编号 [1] 渲染成可点上标 */
+  .cite {
+    color: var(--c-primary); cursor: pointer; font-size: 11px;
+    vertical-align: super; text-decoration: none; padding: 0 1px;
+  }
+  .cite:hover { text-decoration: underline; }
+
+  /* ---------- 引用卡片 ---------- */
+  .cites { margin-top: 10px; border-top: 1px dashed var(--c-line); padding-top: 8px; }
+  .cites-title { font-size: 12px; color: var(--c-sub); margin-bottom: 6px; }
+  .cite-card {
+    font-size: 13px; padding: 8px 10px; margin-bottom: 6px;
+    background: #fafbfc; border: 1px solid var(--c-line); border-radius: 6px;
+  }
+  .cite-card.hl { border-color: var(--c-primary); background: var(--c-primary-weak); }
+  .cite-head { font-weight: 600; margin-bottom: 2px; }
+  .cite-loc { color: var(--c-sub); font-size: 12px; }
+  .cite-snip { color: #374151; margin-top: 4px; }
+
+  /* ---------- 状态与错误 ---------- */
+  .status {
+    font-size: 13px; color: var(--c-sub); padding: 0 20px 6px;
+    display: none;
+  }
+  .status.on { display: block; }
+  .status .dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--c-primary); margin-right: 6px;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+  .banner {
+    display: none; margin: 0 20px 10px; padding: 10px 12px;
+    border-radius: 6px; font-size: 13px;
+    background: var(--c-danger-bg); color: var(--c-danger);
+    border: 1px solid #f6cfcb;
+  }
+  .banner.on { display: block; }
+  .banner .rid { color: #8a5a55; font-size: 12px; display: block; margin-top: 2px; }
+  .banner.warn { background: var(--c-warn-bg); color: var(--c-warn); border-color: #f3e0b0; }
+
+  /* ---------- 输入区 ---------- */
+  .composer {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--c-line);
+    padding: 12px 20px 16px;
+    background: #fff;
+  }
+  .composer .row { display: flex; gap: 10px; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; font: inherit; color: inherit;
+    padding: 10px 12px; border: 1px solid var(--c-line); border-radius: var(--radius);
+    max-height: 140px; min-height: 44px; line-height: 1.6;
+  }
+  textarea:focus { outline: 2px solid var(--c-primary-weak); border-color: var(--c-primary); }
+  .send {
+    font: inherit; font-weight: 600; color: #fff; background: var(--c-primary);
+    border: none; border-radius: var(--radius); padding: 0 18px; height: 44px;
+    cursor: pointer; white-space: nowrap;
+  }
+  .send:disabled { background: #9db4cf; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--c-sub); margin-top: 6px; }
+
+  /* ---------- 空态 ---------- */
+  .empty { color: var(--c-sub); font-size: 14px; text-align: center; padding: 60px 20px; }
+  .empty b { display: block; color: var(--c-text); font-size: 16px; margin-bottom: 6px; }
+  .empty .sample {
+    display: inline-block; margin: 6px 4px 0; padding: 6px 10px;
+    background: #fff; border: 1px solid var(--c-line); border-radius: 999px;
+    cursor: pointer; font-size: 13px; color: var(--c-primary);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      SettleTrace · 结算口径问答
+      <small>只读旁路 · 回答仅为建议，不构成结算结论</small>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="healthPill">检查中…</span>
+    <button class="btn" id="newChatBtn" title="清空当前对话，开一个新会话">新会话</button>
+  </header>
+
+  <div class="banner" id="banner"><span id="bannerText"></span><span class="rid" id="bannerRid"></span></div>
+
+  <div class="stream" id="stream">
+    <div class="empty" id="empty">
+      <b>问结算口径，答来源可查</b>
+      回答会标注引用编号，点击编号可跳到下方来源卡片。
+      <div>
+        <span class="sample">跨币种重复费用应该怎么处理？</span>
+        <span class="sample">版本有效期和确认状态怎么判断最新版？</span>
+        <span class="sample">40 份账单的验收标准是什么？</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="status" id="status"><span class="dot"></span><span id="statusText"></span></div>
+
+  <div class="composer">
+    <div class="row">
+      <textarea id="input" placeholder="输入问题，Enter 发送，Shift+Enter 换行" rows="1"></textarea>
+      <button class="send" id="sendBtn">发送</button>
+    </div>
+    <div class="hint" id="hint">回答依据内部文档检索，若材料不足会直接说明。</div>
+  </div>
+</div>
+
+<script>
+/* =============================================================================
+   前端逻辑分四块：
+     1. SSE 解析（fetch + ReadableStream，不用 EventSource）
+     2. 打字机（requestAnimationFrame 队列，不用 setInterval）
+     3. 渲染（消息气泡 / 引用编号 / 引用卡片）
+     4. 交互（发送、错误、健康检查、新会话）
+   ============================================================================= */
+
+const el = (id) => document.getElementById(id);
+const streamBox = el('stream');
+const input = el('input');
+const sendBtn = el('sendBtn');
+const statusBar = el('status');
+const statusText = el('statusText');
+const banner = el('banner');
+const bannerText = el('bannerText');
+const bannerRid = el('bannerRid');
+const emptyTip = el('empty');
+
+let sessionId = null;      // 后端返回，新会话时为 null
+let streaming = false;     // 防止并发提问
+let abortCtl = null;       // 用于"新会话"时掐断在途请求
+
+/* ---------------------------------------------------------------- 1. 状态提示 */
+function setStatus(text) {
+  if (text) { statusText.textContent = text; statusBar.classList.add('on'); }
+  else { statusBar.classList.remove('on'); }
+}
+function showError(message, code, rid) {
+  bannerText.textContent = (code ? '[' + code + '] ' : '') + message;
+  bannerRid.textContent = rid ? '请求编号：' + rid : '';
+  banner.classList.add('on');
+}
+function clearError() {
+  banner.classList.remove('on');
+  bannerText.textContent = '';
+  bannerRid.textContent = '';
+}
+
+/* ---------------------------------------------------------------- 2. SSE 解析 */
+/**
+ * 手写 SSE 解析器。
+ * 为什么不用 EventSource：它只支持 GET，问题得塞进 URL。
+ * 这里按 "\n\n" 切帧，每帧解析 event: 与 data: 两行。
+ */
+function createSSEParser(onEvent) {
+  let buffer = '';
+  return (chunk) => {
+    buffer += chunk;
+    let idx;
+    while ((idx = buffer.indexOf('\n\n')) >= 0) {
+      const frame = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      let event = 'message';
+      let data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      try { onEvent(event, JSON.parse(data)); }
+      catch (e) { console.warn('SSE 帧解析失败', frame, e); }
+    }
+  };
+}
+
+/* ---------------------------------------------------------------- 3. 打字机 */
+/**
+ * 队列 + rAF：每帧按"距上次渲染的时间差"决定吐多少字（约 60 字/秒）。
+ * 用 setInterval 在后台标签页会被节流到 1s，导致整段文字突然蹦出来；
+ * rAF 不会（不可见时自动暂停，切回来继续），体验更稳。
+ */
+function createTypewriter(node, onFrame) {
+  const queue = [];
+  let visible = '';
+  let raf = null;
+  let last = 0;
+  const SPEED = 60; // 字/秒
+
+  function tick(ts) {
+    if (!last) last = ts;
+    const dt = (ts - last) / 1000;
+    last = ts;
+    if (queue.length) {
+      let n = Math.max(1, Math.floor(dt * SPEED));
+      while (n-- > 0 && queue.length) visible += queue.shift();
+      onFrame(visible, true);
+    } else {
+      onFrame(visible, false);
+      if (!queue.length) { raf = null; last = 0; return; }
+    }
+    raf = requestAnimationFrame(tick);
+  }
+  return {
+    push(text) {
+      for (const ch of text) queue.push(ch);
+      if (!raf) { last = 0; raf = requestAnimationFrame(tick); }
+    },
+    /* 立即吐完（收到 done 或出错时调用，避免用户干等） */
+    flush() {
+      if (queue.length) { visible += queue.join(''); queue.length = 0; }
+      onFrame(visible, false);
+      if (raf) { cancelAnimationFrame(raf); raf = null; last = 0; }
+    },
+    get text() { return visible; }
+  };
+}
+
+/* ---------------------------------------------------------------- 4. 渲染 */
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+/**
+ * 把 [1] [2] 渲染成可点上标。
+ * 注意：先转义再替换，否则用户输入里的 <script> 会被当 HTML 执行。
+ * 流式过程中可能正好切在 "[1" 中间，此时不匹配、原样显示，等下一帧补齐。
+ */
+function renderBody(text) {
+  return escapeHtml(text).replace(/\[(\d)\]/g, (m, n) =>
+    '<a class="cite" data-rank="' + n + '" href="javascript:void(0)">[' + n + ']</a>');
+}
+
+function addMessage(role, text) {
+  emptyTip.style.display = 'none';
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+  const inner = document.createElement('div');
+  inner.style.maxWidth = '84%';
+
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = role === 'user' ? '我' : 'SettleTrace';
+  inner.appendChild(who);
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text || '';
+  inner.appendChild(bubble);
+
+  wrap.appendChild(inner);
+  streamBox.appendChild(wrap);
+  scrollToBottom();
+  return { wrap, inner, bubble };
+}
+
+function renderCitations(inner, cites) {
+  if (!cites.length) return;
+  const box = document.createElement('div');
+  box.className = 'cites';
+  box.innerHTML = '<div class="cites-title">引用来源（' + cites.length + '）</div>' +
+    cites.map((c) =>
+      '<div class="cite-card" data-rank="' + c.rank + '">' +
+        '<div class="cite-head">[' + c.rank + '] ' + escapeHtml(c.source_file) + '</div>' +
+        '<div class="cite-loc">' + escapeHtml(c.heading || '（无标题）') +
+          ' · 第 ' + c.char_start + '-' + c.char_end + ' 字 · 相关度 ' + c.score + '</div>' +
+        '<div class="cite-snip">' + escapeHtml(c.snippet) + '…</div>' +
+      '</div>'
+    ).join('');
+  inner.appendChild(box);
+  scrollToBottom();
+}
+
+/* 点击正文编号 → 滚动到对应卡片并高亮 */
+streamBox.addEventListener('click', (e) => {
+  const a = e.target.closest('.cite');
+  if (!a) return;
+  const rank = a.dataset.rank;
+  const card = a.closest('.msg').querySelector('.cite-card[data-rank="' + rank + '"]');
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.add('hl');
+  setTimeout(() => card.classList.remove('hl'), 1500);
+});
+
+function scrollToBottom() {
+  streamBox.scrollTop = streamBox.scrollHeight;
+}
+
+/* ---------------------------------------------------------------- 5. 发送 */
+async function send(question) {
+  if (streaming) return;
+  const q = (question || input.value).trim();
+  if (!q) return;
+  if (q.length > 500) { showError('问题过长，请精简到 500 字以内', 'E1003'); return; }
+
+  streaming = true;
+  clearError();
+  sendBtn.disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', q);
+
+  // 助手气泡先建好，流式内容往里填
+  const node = addMessage('assistant', '');
+  node.bubble.textContent = '';
+  const caret = document.createElement('span');
+  caret.className = 'caret';
+  node.bubble.appendChild(caret);
+
+  const tw = createTypewriter(node, (visible, typing) => {
+    node.bubble.innerHTML = renderBody(visible) + (typing ? '<span class="caret"></span>' : '');
+    if (typing) scrollToBottom();
+  });
+
+  const cites = [];
+  let gotDelta = false;
+  setStatus('正在检索结算口径…');
+
+  abortCtl = new AbortController();
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, question: q }),
+      signal: abortCtl.signal,
+    });
+
+    // 非 200：后端返回 JSON 错误体（未进入流式）
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw Object.assign(new Error(err.message || '请求失败'), err);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    const feed = createSSEParser((event, data) => {
+      if (event === 'meta') {
+        sessionId = data.session_id;
+      } else if (event === 'status') {
+        setStatus(data.text);
+      } else if (event === 'delta') {
+        if (!gotDelta) { gotDelta = true; setStatus(''); }
+        tw.push(data.text);
+      } else if (event === 'citation') {
+        cites.push(data);
+      } else if (event === 'error') {
+        showError(data.message, data.code, data.request_id);
+      } else if (event === 'done') {
+        // 服务端声明结束：把剩余字符一次性吐完，再补引用卡片
+        tw.flush();
+      }
+    });
+
+    // 逐块读取：必须 decode(stream:true)，否则中文会被切断成乱码
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      feed(decoder.decode(value, { stream: true }));
+    }
+    feed(decoder.decode());
+
+    tw.flush();
+    node.bubble.innerHTML = renderBody(tw.text);
+    setStatus('');
+    renderCitations(node.inner, cites);
+
+    // 流被中断且没收到 done：明确告诉用户，不静默丢内容
+    if (cites.length === 0 && !tw.text) {
+      node.bubble.textContent = '（没有收到回答，请重试）';
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      tw.flush();
+      setStatus('');
+    } else {
+      tw.flush();
+      showError(e.message || '请求失败，请稍后重试', e.code, e.request_id);
+      setStatus('');
+      node.bubble.innerHTML = renderBody(tw.text) + '<span style="color:#b42318">（回答未完成）</span>';
+    }
+  } finally {
+    streaming = false;
+    sendBtn.disabled = false;
+    abortCtl = null;
+    input.focus();
+  }
+}
+
+/* ---------------------------------------------------------------- 6. 交互绑定 */
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+});
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+sendBtn.addEventListener('click', () => send());
+document.querySelectorAll('.sample').forEach((s) => {
+  s.addEventListener('click', () => send(s.textContent));
+});
+el('newChatBtn').addEventListener('click', () => {
+  if (abortCtl) abortCtl.abort();      // 掐断在途请求，避免旧回答串到新会话
+  sessionId = null;
+  streamBox.innerHTML = '';
+  const tip = emptyTip.cloneNode(true);
+  tip.style.display = 'block';
+  streamBox.appendChild(tip);
+  tip.querySelectorAll('.sample').forEach((s) => {
+    s.addEventListener('click', () => send(s.textContent));
+  });
+  clearError();
+  input.focus();
+});
+
+/* 启动时探一次健康状态：数据库没起来 / 没灌语料时，用户能立刻知道原因 */
+(async function checkHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const h = await r.json();
+    const pill = el('healthPill');
+    if (h.ok && h.bm25.enabled) {
+      pill.textContent = '检索就绪 · ' + h.db.chunks + ' 片';
+    } else if (h.ok) {
+      pill.textContent = '语料为空';
+      pill.classList.add('bad');
+      showError('尚未导入语料，请执行 python -m app.ingest --corpus <文件>', 'E3002');
+    } else {
+      pill.textContent = '检索未就绪';
+      pill.classList.add('bad');
+      showError(h.db.error || '检索服务未就绪', 'E3002');
+    }
+  } catch (e) {
+    el('healthPill').textContent = '服务不可达';
+    el('healthPill').classList.add('bad');
+  }
+})();
+</script>
+</body>
+</html>
