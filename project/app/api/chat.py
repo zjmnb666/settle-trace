@@ -32,6 +32,7 @@ from ..core.config import settings
 from ..core.errors import AppError
 from ..core.llm import llm_client
 from ..core.prompt import build_messages
+from ..core.prompt_store import prompt_store
 from ..core.retriever import retriever
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -169,7 +170,9 @@ async def _event_stream(req: ChatRequest, question: str,
 
         # ---- ④ 生成 ----
         yield sse("status", {"stage": "generating", "text": "正在组织回答…"})
-        messages = build_messages(question, hits, history)
+        # 系统提示词从数据库取（管理员改完即时生效）；读失败退回代码内置版
+        system_prompt = await prompt_store.current()
+        messages = build_messages(question, hits, history, system=system_prompt)
 
         disconnected = False
         async for delta in llm_client.stream_chat(messages):

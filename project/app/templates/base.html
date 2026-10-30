@@ -135,6 +135,8 @@
   const banner = document.getElementById('banner');
 
   function showError(msg) {
+    // 传空串表示“清除提示”，否则会留下一条空的红色横条
+    if (!msg) { banner.classList.remove('on'); banner.textContent = ''; return; }
     banner.textContent = msg;
     banner.classList.add('on');
   }

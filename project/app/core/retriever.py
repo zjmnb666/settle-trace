@@ -52,15 +52,38 @@ class Retriever:
         self._bm25: Any = None
         self._metas: list[dict[str, Any]] = []      # 与 BM25 语料同序的元数据
 
+    # 只加载"所属文档未被软删"的切片。
+    # doc_id IS NULL 的历史切片（迁移前灌入的）也要保留，否则升级后检索会突然变空。
+    _LOAD_SQL = """
+        SELECT c.id, c.text, c.source_file, c.heading, c.char_start, c.char_end
+        FROM chunk c
+        LEFT JOIN doc d ON d.id = c.doc_id
+        WHERE c.doc_id IS NULL OR d.status = 'active'
+        ORDER BY c.id
+    """
+
     async def load(self, conn: asyncpg.Connection) -> int:
         """启动时调用。返回加载的切片数。"""
-        rows = await conn.fetch(
-            "SELECT id, text, source_file, heading, char_start, char_end FROM chunk ORDER BY id"
-        )
+        rows = await conn.fetch(self._LOAD_SQL)
         self._metas = [dict(r) for r in rows]
         if HAS_BM25 and self._metas:
             self._bm25 = BM25Okapi([tokenize(m["text"]) for m in self._metas])
+        else:
+            self._bm25 = None
         return len(self._metas)
+
+    async def reload(self) -> int:
+        """后台改了语料（上传/删除）后重建内存索引。
+
+        必须自己拿连接池：调用点都在"事务已提交"之后，
+        传进来的连接可能已经归还，用它读到的会是旧快照或直接报错。
+        81 条切片重建耗时 <50ms，同步做完全够用；上万条时应改成后台任务。
+        """
+        from . import db as _db        # 局部导入避免 core 内部循环引用
+        if not HAS_BM25:
+            return len(self._metas)
+        async with _db.pool().acquire() as conn:
+            return await self.load(conn)
 
     @property
     def size(self) -> int:
@@ -78,11 +101,15 @@ class Retriever:
         # ---- ① 向量召回（pgvector，余弦距离 <=>，值越小越近）----
         qvec = await embedding_client.embed_one(query)
         # 注意：向量以字符串形式传参再 ::vector 转换，避免依赖 asyncpg 的自定义类型注册
+        # 过滤条件与 _LOAD_SQL 保持一致：软删的文档不能出现在结果里，
+        # 否则"删了还能被引用"，用户会认为删除没生效。
         vec_rows = await conn.fetch(
-            """SELECT id, text, source_file, heading, char_start, char_end,
-                      1 - (embedding <=> $1::vector) AS score
-               FROM chunk
-               ORDER BY embedding <=> $1::vector
+            """SELECT c.id, c.text, c.source_file, c.heading, c.char_start, c.char_end,
+                      1 - (c.embedding <=> $1::vector) AS score
+               FROM chunk c
+               LEFT JOIN doc d ON d.id = c.doc_id
+               WHERE c.doc_id IS NULL OR d.status = 'active'
+               ORDER BY c.embedding <=> $1::vector
                LIMIT $2""",
             _vec_literal(qvec), pool_size,
         )

@@ -31,6 +31,11 @@ async def main() -> int:
         async with db.pool().acquire() as conn:
             # ---- 1. 建表（整段执行，DDL 之间无依赖顺序问题）----
             await conn.execute(sql)
+            # 批次二补充：软删留痕字段。CREATE TABLE IF NOT EXISTS 不会给已存在的表加列，
+            # 所以对老库必须单独 ALTER 一次（IF NOT EXISTS 保证可重复执行）。
+            await conn.execute(
+                "ALTER TABLE doc ADD COLUMN IF NOT EXISTS deleted_by TEXT REFERENCES admin_user(id)"
+            )
             print("[1/3] 表结构已应用（admin_user / doc / prompt_template / audit_flag，chunk 增加 doc_id）")
 
             # ---- 2. 提示词基线版本 ----

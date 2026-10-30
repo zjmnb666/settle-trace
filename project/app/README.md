@@ -93,14 +93,18 @@ LLM_API_KEY=sk-xxxxxxxx
 
 > `.env` 已被 `.gitignore` 忽略，不会入库。系统环境变量优先于 `.env`，便于临时覆盖。
 
-## 管理后台（阶段 3 · 批次 1 已完成）
+## 管理后台（阶段 3 · 批次 1 / 2 已完成）
 
 | 页面 | 路径 | 说明 |
 |---|---|---|
 | 登录 | `/admin/login` | 账号密码 → JWT(HttpOnly Cookie) + CSRF token |
 | 概览 | `/admin` | 语料数 / 切片数 / 今日回答 / 待处理标记 + 系统状态 |
+| 语料管理 | `/admin/knowledge` | 上传 md/txt/有文字层 PDF → 切片 → 向量化 → 入库；列表、切片明细、删除 |
+| 提示词模板 | `/admin/prompts` | 编辑系统提示词、保存为新版本、一键激活（即时生效）、版本历史 |
 
-接口：`POST /admin/api/login`、`POST /admin/api/logout`、`GET /admin/api/me`。
+接口：`POST /admin/api/login`、`POST /admin/api/logout`、`GET /admin/api/me`、
+`GET/POST/DELETE /admin/api/docs`、`GET /admin/api/docs/{id}/chunks`、
+`DELETE /admin/api/chunks/{id}`、`GET/POST /admin/api/prompts`、`POST /admin/api/prompts/{id}/activate`。
 
 **初始账号**：首次启动且 `admin_user` 为空时，用 `.env` 里的
 `ADMIN_INIT_USERNAME` / `ADMIN_INIT_PASSWORD` 创建管理员（只执行一次）。
@@ -120,6 +124,31 @@ ADMIN_INIT_PASSWORD=<你自己的密码>
 - 角色 → 能力映射见 `app/api/admin_deps.py` 的 `CAPABILITIES`；`is_admin` 为总开关
 
 **数据库**：先执行 `python -m app.admin_migrate`（建 4 张表 + 写提示词 v1 + 回填历史切片）。
+
+### 批次 2：语料与提示词（已实现）
+
+**语料管理的行为约定**
+
+| 场景 | 行为 | 理由 |
+|---|---|---|
+| 重复上传同一内容 | `E4006`，提示先删或用 `--force` | 按 sha256 去重，避免检索里出现两份一样的切片互相抢名次 |
+| 删除文档 | 软删 `doc`（留痕：谁删的、何时删）+ 物理删 `chunk` | `chunk` 是派生数据，可从原文件重建；保留会导致检索 SQL 永远要多 JOIN 一次 |
+| 上传后生效 | **立即**，无需重启 | `retriever.reload()` 在事务提交后重建内存 BM25 |
+| 上传 PDF | 只收有文字层的，扫描件返回 `E4009` | 不做 OCR：识别错的字会变成凭空的金额与编号，比"读不了"严重 |
+| 上传 txt | 依次尝试 utf-8-sig / utf-8 / gb18030 | 中文 Windows 导出的 txt 常是 GBK |
+
+**提示词生效机制**
+
+- 存 `prompt_template` 表，代码里的 `SYSTEM_PROMPT` 只作兜底（表为空也能问答）
+- 新建版本默认**不激活**；激活即生效，下一次提问就用新模板
+- 单实例：`prompt_store.mark_dirty()` 让缓存立刻失效
+- 多实例：靠 TTL 10 秒最终一致，要秒级一致需加 Redis pub/sub（未做）
+- **四条红线不可删除**：保存时校验，缺任一条返回 `E4008` 并指出缺哪条
+
+**命令行与后台是同一套逻辑**：`python -m app.ingest` 内部调用 `doc_service.import_document`，
+所以命令行灌进去的文档在后台列表里能看到，去重与留痕规则也一致。
+`--force` 覆盖同内容文档。
+
 
 ## 接口
 

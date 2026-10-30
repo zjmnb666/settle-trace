@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
-"""语料灌入：Markdown → 切片 → 向量化 → 写入 chunk 表。
+"""命令行灌入语料：文件 → 切片 → 向量化 → 写入 chunk 表（并登记 doc）。
 
 用法：
     python -m app.ingest --corpus ../discovery-report.md
-    python -m app.ingest --corpus ../discovery-report.md --keep   # 保留同一文件的旧切片
+    python -m app.ingest --corpus ../discovery-report.md --force   # 覆盖同内容文档
 
-行为：
-    默认先删掉同 source_file 的旧切片再插入（幂等重跑，改切片参数后不会残留脏数据）。
-    id 由「文件名 + 序号」生成，跨文件不会撞。
+和后台「语料管理」页走的是同一个函数（core/doc_service.import_document），
+所以两条入口的行为、去重规则、留痕方式完全一致——
+不会出现"命令行灌的文档在后台列表里看不到"这种情况。
+
+内容哈希去重：同一份文件重复导入会返回 E4006（提示已存在），加 --force 才覆盖。
 """
 
 from __future__ import annotations
@@ -17,73 +19,50 @@ import asyncio
 import sys
 from pathlib import Path
 
-from .core import db
-from .core.chunker import split_markdown
+from .core import db, doc_service
 from .core.config import settings
-from .core.embedding import embedding_client
+from .core.errors import AppError
 
 
-async def ingest(corpus: Path, keep: bool = False) -> None:
+async def ingest(corpus: Path, force: bool = False) -> None:
     if not corpus.exists():
         raise SystemExit(f"文件不存在：{corpus}")
 
-    text = corpus.read_text(encoding="utf-8", errors="ignore")
-    chunks = split_markdown(
-        text, source=corpus.name,
-        max_chars=settings.chunk_max_chars, overlap=settings.chunk_overlap,
-    )
-    if not chunks:
-        raise SystemExit("切片结果为空，请检查输入文件")
-
-    avg = sum(len(c.text) for c in chunks) // len(chunks)
-    print(f"[1/3] 切片完成：{len(chunks)} 片，平均 {avg} 字")
-
-    vectors = await embedding_client.embed([c.text for c in chunks])
-    print(f"[2/3] 向量化完成：{vectors.shape[0]} × {vectors.shape[1]}（provider={settings.emb_provider}）")
-
-    if vectors.shape[1] != settings.emb_dim:
-        raise SystemExit(f"向量维度 {vectors.shape[1]} 与 EMB_DIM={settings.emb_dim} 不一致")
+    print(f"[1/4] 读取：{corpus.name}（{corpus.stat().st_size / 1024:.1f} KB）")
+    data = corpus.read_bytes()
 
     await db.init_pool()
     try:
-        async with db.pool().acquire() as conn:
-            async with conn.transaction():
-                if not keep:
-                    deleted = await conn.execute(
-                        "DELETE FROM chunk WHERE source_file = $1", corpus.name
-                    )
-                    print(f"      清理旧切片：{deleted}")
+        try:
+            result = await doc_service.import_document(
+                corpus.name, data, uploaded_by=None,
+                note="命令行导入", overwrite=force,
+            )
+        except AppError as e:
+            # 业务错误不带堆栈，直接给人看得懂的一句话
+            raise SystemExit(f"[失败] {e.code} {e.message}"
+                             + (f"（{e.detail}）" if e.detail else "")) from None
 
-                # id 里带文件名前缀，避免多次 ingest 不同文件时撞主键
-                stem = corpus.stem[:12]
-                rows = [
-                    (f"{stem}-{c.chunk_id}", c.source_file, c.heading,
-                     c.char_start, c.char_end, c.text,
-                     "[" + ",".join(f"{float(x):.6f}" for x in vectors[i]) + "]")
-                    for i, c in enumerate(chunks)
-                ]
-                await conn.executemany(
-                    """INSERT INTO chunk
-                           (id, source_file, heading, char_start, char_end, text, embedding)
-                       VALUES ($1, $2, $3, $4, $5, $6, $7::vector)
-                       ON CONFLICT (id) DO UPDATE
-                         SET text = EXCLUDED.text, embedding = EXCLUDED.embedding""",
-                    rows,
-                )
+        print(f"[2/4] 切片与向量化完成：{result['chunks']} 片"
+              f"（{settings.chunk_max_chars} 字/片，重叠 {settings.chunk_overlap}，"
+              f"向量 {settings.emb_provider}/{settings.emb_dim} 维）")
 
         count, dim = await db.check_ready()
-        print(f"[3/3] 灌入完成：chunk 表共 {count} 条，向量维度 {dim}")
-        print("      重启服务后检索生效（BM25 索引在启动时加载）")
+        print(f"[3/4] 入库完成：chunk 表共 {count} 条，向量维度 {dim}")
+        print(f"[4/4] 文档已登记：doc={result['doc_id'][:8]}"
+              f"{'（覆盖旧记录）' if result.get('reimported') else ''}")
+        print("\n提示：服务若已在运行，无需重启——上传/导入会自动重建内存索引；")
+        print("      但如果你用的是 --reload 之外的独立进程，重启一次最保险。")
     finally:
         await db.close_pool()
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="把 Markdown 语料灌入 chunk 表")
-    p.add_argument("--corpus", required=True, help="Markdown 文件路径")
-    p.add_argument("--keep", action="store_true", help="保留同一文件的旧切片（增量追加）")
+    p = argparse.ArgumentParser(description="把语料灌入 chunk 表（与后台上传同一套逻辑）")
+    p.add_argument("--corpus", required=True, help="文件路径（md / txt / 有文字层的 pdf）")
+    p.add_argument("--force", action="store_true", help="覆盖内容相同的已有文档")
     args = p.parse_args(argv)
-    asyncio.run(ingest(Path(args.corpus), keep=args.keep))
+    asyncio.run(ingest(Path(args.corpus), force=args.force))
     return 0
 
 

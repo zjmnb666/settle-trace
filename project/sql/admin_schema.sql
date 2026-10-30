@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS doc (
     note        TEXT,
     uploaded_by TEXT REFERENCES admin_user(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    deleted_at  TIMESTAMPTZ,
+    deleted_by  TEXT REFERENCES admin_user(id)   -- 软删留痕：谁删的
 );
 
 ALTER TABLE chunk ADD COLUMN IF NOT EXISTS doc_id TEXT REFERENCES doc(id);

@@ -16,7 +16,9 @@ from fastapi import Depends, Request
 
 from ..core import db
 from ..core.errors import AppError
-from ..core.security import COOKIE_NAME, decode_token
+from ..core.security import (
+    COOKIE_NAME, CSRF_COOKIE, CSRF_HEADER, csrf_ok, decode_token,
+)
 
 # -----------------------------------------------------------------------------
 # 能力表：与设计文档「权限矩阵」一一对应
@@ -130,3 +132,13 @@ def require(cap: str):
         return user
 
     return _dep
+
+
+def check_csrf(request: Request) -> None:
+    """写操作的 CSRF 双重提交校验。
+
+    统一放这里而不是每个模块各写一遍：漏掉一处，后台的删除接口就变成一个
+    "第三方页面可以替管理员点"的洞。宁可所有写操作都显式调它一次。
+    """
+    if not csrf_ok(request.cookies.get(CSRF_COOKIE), request.headers.get(CSRF_HEADER)):
+        raise AppError("E4003")

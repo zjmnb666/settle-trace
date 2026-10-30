@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <h2>上传语料</h2>
+  <p class="muted" style="margin-top:-6px">
+    支持 Markdown / TXT / 带文字层的 PDF。上传后自动切片、向量化并进入检索，
+    <b>立即生效，不需要重启服务</b>。内容完全相同的文件不会重复导入。
+  </p>
+  <form id="uploadForm" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+    <input type="file" id="fileInput" name="file" accept=".md,.markdown,.txt,.pdf" required
+           style="font-size:13px">
+    <input type="text" id="noteInput" name="note" placeholder="备注（可选，如：2026Q4 结算口径）"
+           style="flex:1; min-width:220px; padding:6px 10px; border:1px solid var(--c-line); border-radius:6px; font:inherit; font-size:13px">
+    <button type="submit" class="btn primary" id="uploadBtn">上传并入库</button>
+  </form>
+  <div id="uploadMsg" class="muted" style="margin-top:10px"></div>
+</div>
+
+<div class="card">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
+    <h2 style="margin:0">文档列表</h2>
+    <div style="flex:1"></div>
+    <input type="text" id="q" placeholder="按文件名搜索"
+           style="padding:5px 10px; border:1px solid var(--c-line); border-radius:6px; font:inherit; font-size:13px">
+    <button class="btn" id="refreshBtn">刷新</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:34%">文件</th>
+        <th style="width:9%">切片</th>
+        <th style="width:11%">大小</th>
+        <th style="width:9%">被引用</th>
+        <th style="width:15%">上传</th>
+        <th style="width:22%">操作</th>
+      </tr>
+    </thead>
+    <tbody id="docRows">
+      <tr><td colspan="6" class="muted">加载中…</td></tr>
+    </tbody>
+  </table>
+  <div id="pager" class="muted" style="margin-top:10px"></div>
+</div>
+
+<div class="card" id="chunkCard" style="display:none">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
+    <h2 style="margin:0" id="chunkTitle">切片明细</h2>
+    <div style="flex:1"></div>
+    <button class="btn" id="closeChunk">收起</button>
+  </div>
+  <table>
+    <thead>
+      <tr><th style="width:16%">切片 ID</th><th style="width:26%">所在小节</th>
+          <th style="width:10%">字符区间</th><th>正文</th><th style="width:8%">操作</th></tr>
+    </thead>
+    <tbody id="chunkRows"></tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const docRows = document.getElementById('docRows');
+const chunkRows = document.getElementById('chunkRows');
+const chunkCard = document.getElementById('chunkCard');
+const uploadMsg = document.getElementById('uploadMsg');
+let page = 1;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+function fmtTime(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; }
+
+// 统一请求封装：非 2xx 时把后端的中文 message 抛出来，页面直接展示
+async function api(url, opts) {
+  const resp = await fetch(url, opts);
+  let data = null;
+  try { data = await resp.json(); } catch (e) { data = null; }
+  if (!resp.ok) {
+    throw new Error((data && data.message) || ('请求失败（HTTP ' + resp.status + '）'));
+  }
+  return data;
+}
+
+async function loadDocs() {
+  const q = document.getElementById('q').value.trim();
+  docRows.innerHTML = '<tr><td colspan="6" class="muted">加载中…</td></tr>';
+  try {
+    const data = await api('/admin/api/docs?page=' + page + '&page_size=20' +
+                           (q ? '&q=' + encodeURIComponent(q) : ''));
+    if (!data.items.length) {
+      docRows.innerHTML = '<tr><td colspan="6" class="muted">还没有语料。' +
+        '可以先用 <code>python -m app.ingest --corpus ../discovery-report.md</code> 灌入访谈报告。</td></tr>';
+    } else {
+      docRows.innerHTML = data.items.map(d => `
+        <tr>
+          <td><b>${esc(d.filename)}</b>${d.note ? '<br><span class="muted">' + esc(d.note) + '</span>' : ''}</td>
+          <td>${d.chunk_count}</td>
+          <td>${fmtSize(d.size_bytes)}</td>
+          <td>${d.cited}</td>
+          <td class="muted">${esc(d.uploaded_by || '—')}<br>${fmtTime(d.created_at)}</td>
+          <td>
+            <button class="btn" data-chunks="${d.id}" data-name="${esc(d.filename)}">切片</button>
+            <button class="btn danger" data-del="${d.id}" data-name="${esc(d.filename)}">删除</button>
+          </td>
+        </tr>`).join('');
+    }
+    const pages = Math.max(1, Math.ceil(data.total / data.page_size));
+    document.getElementById('pager').textContent =
+      '共 ' + data.total + ' 个文档，第 ' + data.page + '/' + pages + ' 页';
+  } catch (e) {
+    docRows.innerHTML = '<tr><td colspan="6" class="muted">加载失败：' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function loadChunks(docId, name, pg) {
+  chunkCard.style.display = '';
+  document.getElementById('chunkTitle').textContent = '切片明细 · ' + name;
+  chunkRows.innerHTML = '<tr><td colspan="5" class="muted">加载中…</td></tr>';
+  try {
+    const data = await api('/admin/api/docs/' + docId + '/chunks?page=' + (pg || 1) + '&page_size=20');
+    if (!data.items.length) {
+      chunkRows.innerHTML = '<tr><td colspan="5" class="muted">该文档没有切片</td></tr>';
+      return;
+    }
+    chunkRows.innerHTML = data.items.map(c => `
+      <tr>
+        <td class="muted">${esc(c.id)}</td>
+        <td>${esc(c.heading || '（无标题）')}</td>
+        <td class="muted">${c.char_start}-${c.char_end}</td>
+        <td>${esc(c.text.length > 180 ? c.text.slice(0, 180) + '…' : c.text)}</td>
+        <td><button class="btn danger" data-delchunk="${c.id}">删除</button></td>
+      </tr>`).join('') +
+      (data.total > data.page_size
+        ? `<tr><td colspan="5" class="muted">共 ${data.total} 条，只显示前 ${data.page_size} 条</td></tr>` : '');
+  } catch (e) {
+    chunkRows.innerHTML = '<tr><td colspan="5" class="muted">加载失败：' + esc(e.message) + '</td></tr>';
+  }
+}
+
+// ---- 上传 ----
+document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) { uploadMsg.textContent = '请先选择文件'; return; }
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+  uploadMsg.textContent = '正在解析、切片、向量化…（大文件需要几秒）';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('note', document.getElementById('noteInput').value);
+    const data = await api('/admin/api/docs', {
+      method: 'POST', body: fd, headers: { 'X-CSRF-Token': CSRF },
+    });
+    uploadMsg.textContent = '导入成功：' + data.filename + '，' + data.chunks + ' 个切片' +
+      (data.reimported ? '（原记录已恢复）' : '') + '。检索已即时生效。';
+    document.getElementById('fileInput').value = '';
+    document.getElementById('noteInput').value = '';
+    loadDocs();
+  } catch (e) {
+    uploadMsg.textContent = '导入失败：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---- 事件委托：列表行里的按钮是动态生成的 ----
+docRows.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.chunks) {
+    loadChunks(btn.dataset.chunks, btn.dataset.name);
+    return;
+  }
+  if (btn.dataset.del) {
+    const name = btn.dataset.name;
+    if (!confirm('确认删除《' + name + '》？\n\n该文档的全部切片会从检索中移除，' +
+                 '回答将不再引用它。文件内容本身不会被保留，如需恢复请重新上传。')) return;
+    btn.disabled = true;
+    try {
+      const r = await api('/admin/api/docs/' + btn.dataset.del, {
+        method: 'DELETE', headers: { 'X-CSRF-Token': CSRF },
+      });
+      showError('');
+      chunkCard.style.display = 'none';
+      loadDocs();
+      uploadMsg.textContent = '已删除《' + name + '》，移除 ' + r.deleted_chunks + ' 个切片。';
+    } catch (e) {
+      showError('删除失败：' + e.message);
+      btn.disabled = false;
+    }
+  }
+});
+
+chunkRows.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn || !btn.dataset.delchunk) return;
+  if (!confirm('确认删除该切片？此操作会立即影响检索结果。')) return;
+  btn.disabled = true;
+  try {
+    await api('/admin/api/chunks/' + btn.dataset.delchunk, {
+      method: 'DELETE', headers: { 'X-CSRF-Token': CSRF },
+    });
+    btn.closest('tr').remove();
+  } catch (e) {
+    showError('删除失败：' + e.message);
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('refreshBtn').addEventListener('click', () => { page = 1; loadDocs(); });
+document.getElementById('q').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { page = 1; loadDocs(); }
+});
+document.getElementById('closeChunk').addEventListener('click', () => {
+  chunkCard.style.display = 'none';
+});
+
+loadDocs();
+</script>
+{% endblock %}

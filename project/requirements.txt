@@ -21,3 +21,6 @@ PyJWT==2.15.1
 bcrypt==5.0.0
 jinja2==3.1.6
 python-multipart==0.0.32
+
+# --- admin console (batch 2): text-layer PDF parsing, no OCR on purpose ---
+pypdf==6.21.4

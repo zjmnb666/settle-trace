@@ -40,12 +40,15 @@ def build_user_prompt(question: str, hits: Sequence[Hit]) -> str:
 
 
 def build_messages(question: str, hits: Sequence[Hit],
-                   history: Sequence[dict[str, str]] | None = None) -> list[dict]:
+                   history: Sequence[dict[str, str]] | None = None,
+                   system: str | None = None) -> list[dict]:
     """组装完整消息数组：system + 历史 + 本轮。
 
     历史由调用方裁好（见 api/chat.py 的 trim_history），这里只负责顺序拼接。
+    system 由调用方从数据库取（prompt_store.current()）；传 None 时用代码内置版兜底，
+    这样即使 prompt_template 表被清空，问答也不会因为"没有系统提示"而失去边界。
     """
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: list[dict] = [{"role": "system", "content": system or SYSTEM_PROMPT}]
     if history:
         messages.extend({"role": m["role"], "content": m["content"]} for m in history)
     messages.append({"role": "user", "content": build_user_prompt(question, hits)})

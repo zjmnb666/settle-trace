@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
+    <h2 style="margin:0">系统提示词</h2>
+    <span class="tag" id="activeTag">生效版本 v—</span>
+    <div style="flex:1"></div>
+    <span class="muted" id="charsHint"></span>
+  </div>
+  <p class="muted" style="margin-top:-4px">
+    保存会生成<b>新版本</b>（不自动生效），确认无误后点「设为生效」。
+    激活即生效，问答下一次提问就会用新模板，<b>无需重启服务</b>。
+  </p>
+
+  <!-- 四条红线：写在页面上而不是只写在文档里，改的人一眼能看到边界在哪 -->
+  <div class="card" style="background:#fbfcfe; margin-bottom:14px">
+    <b style="font-size:13px">四条不可删除的条款</b>
+    <ul class="muted" style="margin:6px 0 0 18px; padding:0">
+      <li>只依据给定材料作答，不得编造金额、比例、编号、日期</li>
+      <li>结论后标注引用编号</li>
+      <li>材料不足时明确说"没有相关内容"</li>
+      <li>涉及付款执行 / 税务判定 / 加盖签章时，声明本系统不承担该职能</li>
+    </ul>
+  </div>
+
+  <textarea id="editor" spellcheck="false"
+    style="width:100%; min-height:340px; padding:14px 16px; border:1px solid var(--c-line);
+           border-radius:8px; font:13px/1.7 'Consolas','Microsoft YaHei',monospace;
+           resize:vertical; color:var(--c-text); background:#fff"></textarea>
+
+  <div style="display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap">
+    <input type="text" id="note" placeholder="本次修改说明（如：补充币种换算口径）"
+           style="flex:1; min-width:240px; padding:6px 10px; border:1px solid var(--c-line);
+                  border-radius:6px; font:inherit; font-size:13px">
+    <button class="btn primary" id="saveBtn">保存为新版本</button>
+    <button class="btn" id="resetBtn">载回生效版本</button>
+  </div>
+  <div id="msg" class="muted" style="margin-top:10px"></div>
+</div>
+
+<div class="card">
+  <h2>版本历史</h2>
+  <table>
+    <thead>
+      <tr><th style="width:8%">版本</th><th style="width:11%">状态</th>
+          <th style="width:9%">字数</th><th>摘要</th>
+          <th style="width:16%">创建</th><th style="width:16%">操作</th></tr>
+    </thead>
+    <tbody id="rows"><tr><td colspan="6" class="muted">加载中…</td></tr></tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const rows = document.getElementById('rows');
+const editor = document.getElementById('editor');
+const msg = document.getElementById('msg');
+let activeId = null;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+async function api(url, opts) {
+  const resp = await fetch(url, opts);
+  let data = null;
+  try { data = await resp.json(); } catch (e) { data = null; }
+  if (!resp.ok) throw new Error((data && data.message) || ('请求失败（HTTP ' + resp.status + '）'));
+  return data;
+}
+
+function updateChars() {
+  document.getElementById('charsHint').textContent = editor.value.length + ' 字';
+}
+editor.addEventListener('input', updateChars);
+
+async function loadActive() {
+  const data = await api('/admin/api/prompts');
+  const active = data.items.find(x => x.is_active);
+  document.getElementById('activeTag').textContent = active ? ('生效版本 v' + active.version) : '无生效版本';
+  if (active) {
+    activeId = active.id;
+    const full = await api('/admin/api/prompts/' + active.id);
+    editor.value = full.content;
+    updateChars();
+  }
+  renderRows(data.items);
+}
+
+function renderRows(items) {
+  if (!items.length) {
+    rows.innerHTML = '<tr><td colspan="6" class="muted">还没有版本</td></tr>';
+    return;
+  }
+  rows.innerHTML = items.map(p => `
+    <tr>
+      <td><b>v${p.version}</b></td>
+      <td>${p.is_active ? '<span class="tag ok">生效中</span>' : '<span class="tag grey">历史</span>'}</td>
+      <td class="muted">${p.chars}</td>
+      <td class="muted">${esc(p.note || p.preview)}</td>
+      <td class="muted">${esc(p.created_by || '—')}<br>${(p.created_at || '').replace('T', ' ').slice(0, 16)}</td>
+      <td>
+        <button class="btn" data-view="${p.id}">载入编辑</button>
+        ${p.is_active ? '' : `<button class="btn primary" data-act="${p.id}" data-v="${p.version}">设为生效</button>`}
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const content = editor.value.trim();
+  if (!content) { msg.textContent = '提示词不能为空'; return; }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  msg.textContent = '保存中…';
+  try {
+    const r = await api('/admin/api/prompts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+      body: JSON.stringify({ content: content, note: document.getElementById('note').value }),
+    });
+    msg.textContent = '已保存为 v' + r.version + '（尚未生效）。确认没问题后，在下方点「设为生效」。';
+    document.getElementById('note').value = '';
+    await loadActive();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => { loadActive(); });
+
+rows.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+
+  if (btn.dataset.view) {
+    try {
+      const p = await api('/admin/api/prompts/' + btn.dataset.view);
+      editor.value = p.content;
+      updateChars();
+      msg.textContent = '已载入 v' + p.version + ' 到编辑器（改完保存会生成新版本，不会覆盖历史）。';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      showError('载入失败：' + e.message);
+    }
+    return;
+  }
+
+  if (btn.dataset.act) {
+    if (!confirm('将 v' + btn.dataset.v + ' 设为生效？\n\n下一次提问立即使用该版本。' +
+                 '当前生效版本会变成历史，随时可以再切回来。')) return;
+    btn.disabled = true;
+    try {
+      await api('/admin/api/prompts/' + btn.dataset.act + '/activate', {
+        method: 'POST', headers: { 'X-CSRF-Token': CSRF },
+      });
+      msg.textContent = 'v' + btn.dataset.v + ' 已生效。';
+      await loadActive();
+    } catch (e) {
+      msg.textContent = '切换失败：' + e.message;
+      btn.disabled = false;
+    }
+  }
+});
+
+loadActive().catch(e => { msg.textContent = '加载失败：' + e.message; });
+</script>
+{% endblock %}

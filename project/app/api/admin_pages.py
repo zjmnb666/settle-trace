@@ -101,3 +101,34 @@ async def overview(request: Request):
             "csrf_token": _csrf(request), "s": stats,
         },
     )
+
+
+@router.get("/knowledge")
+async def knowledge_page(request: Request):
+    """语料管理页。页面只负责渲染骨架，列表与操作全走 /admin/api/docs。"""
+    user, redirect = await _page_guard(request, "knowledge:view")
+    if redirect:
+        return redirect
+    return templates.TemplateResponse(
+        request=request, name="knowledge.html",
+        context={
+            "user": user, "menus": menus_for(user),
+            "active": "/admin/knowledge", "title": "语料管理",
+            "csrf_token": _csrf(request),
+        },
+    )
+
+
+@router.get("/prompts")
+async def prompts_page(request: Request):
+    user, redirect = await _page_guard(request, "prompt:view")
+    if redirect:
+        return redirect
+    return templates.TemplateResponse(
+        request=request, name="prompts.html",
+        context={
+            "user": user, "menus": menus_for(user),
+            "active": "/admin/prompts", "title": "提示词模板",
+            "csrf_token": _csrf(request),
+        },
+    )
