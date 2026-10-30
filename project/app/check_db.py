@@ -24,6 +24,7 @@ from urllib.parse import urlsplit, urlunsplit
 import asyncpg
 
 from .core.config import DOTENV_PATH, settings
+from .core.db import connect_kwargs
 
 OK = "[通过]"
 BAD = "[失败]"
@@ -63,12 +64,13 @@ async def check() -> int:
     # ---- 2. 连接 ----
     print("\n[2/8] 建立连接…")
     try:
-        conn = await asyncpg.connect(dsn=settings.database_url, timeout=10)
+        conn = await asyncpg.connect(dsn=settings.database_url, timeout=10, **connect_kwargs())
     except (OSError, asyncpg.PostgresError) as e:
         print(f"{BAD} 连接失败：{type(e).__name__}: {e}")
         print("\n排查顺序：")
         print("  · 云 PG：连接串是否带 ?sslmode=require；是否用了 Session pooler 的 5432 端口")
         print("  · 云 PG：用户名是 postgres.项目ref 形式，不是 postgres")
+        print("  · 云 PG：Direct connection 只支持 IPv6，家用宽带没 IPv6 就换 Session pooler")
         print("  · 本地 Docker：docker compose ps 是否 healthy；端口 5432 是否被占用")
         print("  · 网络：公司代理 / 防火墙是否拦截 5432 出站")
         return 1

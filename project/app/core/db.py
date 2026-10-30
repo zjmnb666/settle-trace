@@ -33,9 +33,25 @@ async def init_pool() -> None:
             min_size=1,
             max_size=8,
             command_timeout=30,
+            **connect_kwargs(),
         )
     except (OSError, asyncpg.PostgresError) as e:
         raise AppError("E3004", f"连接 {settings.database_url} 失败: {e}") from e
+
+
+def connect_kwargs() -> dict:
+    """根据连接串判断要不要关掉语句缓存。
+
+    Supabase / Neon 的 Transaction pooler（6543 端口）是 pgbouncer 事务模式，
+    不支持 prepared statement 复用；asyncpg 默认会缓存语句，直连会报
+    "prepared statement ... does not exist"。
+    这里按端口/参数自动关闭缓存，用户不用记这条规则。
+    Session pooler 与直连（5432）保持默认（有缓存，性能更好）。
+    """
+    dsn = settings.database_url
+    if ":6543" in dsn or "pgbouncer=true" in dsn:
+        return {"statement_cache_size": 0}
+    return {}
 
 
 async def close_pool() -> None:
