@@ -63,6 +63,14 @@
     border: 1px solid #cfe0f7; white-space: nowrap;
   }
   .pill.bad { background: var(--c-danger-bg); color: var(--c-danger); border-color: #f6cfcb; }
+  /* 身份控件：原型没有登录，工号与角色由使用者自填，用于审计筛选与数据范围 */
+  .ident { display: flex; gap: 6px; align-items: center; }
+  .ident input, .ident select {
+    font: inherit; font-size: 12.5px; padding: 4px 8px; border-radius: 6px;
+    border: 1px solid var(--c-line); background: #fff; color: var(--c-text);
+  }
+  .ident input { width: 92px; }
+  .ident select { max-width: 132px; }
   .btn {
     font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer;
     background: #fff; color: var(--c-text);
@@ -184,6 +192,17 @@
       <small>只读旁路 · 回答仅为建议，不构成结算结论</small>
     </div>
     <div class="spacer"></div>
+    <div class="ident">
+      <input id="uidInput" placeholder="工号" title="原型未接 SSO，工号仅用于审计筛选与留痕">
+      <select id="roleSelect" title="角色决定可访问的数据范围（原型阶段记录用）">
+        <option value="service_specialist">一线服务专员</option>
+        <option value="coordinator">流程协调员</option>
+        <option value="business_owner">业务负责人</option>
+        <option value="quality_owner">质量负责人</option>
+        <option value="data_engineer">数字化工程师</option>
+        <option value="client_rep">客户协同代表</option>
+      </select>
+    </div>
     <span class="pill" id="healthPill">检查中…</span>
     <button class="btn" id="newChatBtn" title="清空当前对话，开一个新会话">新会话</button>
   </header>
@@ -234,6 +253,20 @@ const bannerRid = el('bannerRid');
 const emptyTip = el('empty');
 
 let sessionId = null;      // 后端返回，新会话时为 null
+
+/* 身份：从 localStorage 恢复，改动即保存。
+   接 SSO 后这里改成从后端会话读，前端不用改调用方式。 */
+const uidInput = document.getElementById('uidInput');
+const roleSelect = document.getElementById('roleSelect');
+uidInput.value = localStorage.getItem('st_uid') || '';
+roleSelect.value = localStorage.getItem('st_role') || 'service_specialist';
+uidInput.addEventListener('change', () => localStorage.setItem('st_uid', uidInput.value.trim()));
+roleSelect.addEventListener('change', () => localStorage.setItem('st_role', roleSelect.value));
+
+function identity() {
+  const uid = uidInput.value.trim();
+  return { role: roleSelect.value, user_id: uid || null };
+}
 let streaming = false;     // 防止并发提问
 let abortCtl = null;       // 用于"新会话"时掐断在途请求
 
@@ -430,7 +463,7 @@ async function send(question) {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, question: q }),
+      body: JSON.stringify({ session_id: sessionId, question: q, ...identity() }),
       signal: abortCtl.signal,
     });
 

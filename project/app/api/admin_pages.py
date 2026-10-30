@@ -119,6 +119,21 @@ async def knowledge_page(request: Request):
     )
 
 
+@router.get("/audit")
+async def audit_page(request: Request):
+    user, redirect = await _page_guard(request, "audit:view")
+    if redirect:
+        return redirect
+    return templates.TemplateResponse(
+        request=request, name="audit.html",
+        context={
+            "user": user, "menus": menus_for(user),
+            "active": "/admin/audit", "title": "对话审计",
+            "csrf_token": _csrf(request),
+        },
+    )
+
+
 @router.get("/prompts")
 async def prompts_page(request: Request):
     user, redirect = await _page_guard(request, "prompt:view")

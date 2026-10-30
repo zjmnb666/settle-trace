@@ -67,6 +67,9 @@ class ChatRequest(BaseModel):
     session_id: str | None = Field(None, description="为空表示新建会话")
     question: str = Field(..., description="用户问题")
     role: str = Field("service_specialist", description="角色，见 ROLES")
+    # 原型没有登录，工号由前端自填；接 SSO 后改从会话里取，接口形状不用变。
+    # 这个字段进 session.user_id，是审计页按员工筛选的唯一依据。
+    user_id: str | None = Field(None, max_length=64, description="工号/姓名，审计筛选用")
     scope: Scope | None = None
     top_k: int | None = Field(None, ge=1, le=10)
 
@@ -141,7 +144,7 @@ async def _event_stream(req: ChatRequest, question: str,
         # ---- ① 会话：先取历史，再写本轮（顺序不能反，否则历史里会多出本轮问题）----
         session = await db.get_or_create_session(
             req.session_id,
-            user_id=None,
+            user_id=(req.user_id or "").strip() or None,
             role=req.role,
             client_id=req.scope.client_id if req.scope else None,
             project_id=req.scope.project_id if req.scope else None,

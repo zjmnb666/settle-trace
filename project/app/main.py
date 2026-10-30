@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api.admin_auth import bootstrap_admin
+from .api.admin_audit import router as admin_audit_router
 from .api.admin_knowledge import router as admin_knowledge_router
 from .api.admin_prompts import router as admin_prompt_router
 from .api.admin_auth import router as admin_auth_router
@@ -73,6 +74,7 @@ app.include_router(admin_auth_router)
 app.include_router(admin_pages_router)
 app.include_router(admin_knowledge_router)
 app.include_router(admin_prompt_router)
+app.include_router(admin_audit_router)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 

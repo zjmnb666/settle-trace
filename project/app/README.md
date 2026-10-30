@@ -93,7 +93,7 @@ LLM_API_KEY=sk-xxxxxxxx
 
 > `.env` 已被 `.gitignore` 忽略，不会入库。系统环境变量优先于 `.env`，便于临时覆盖。
 
-## 管理后台（阶段 3 · 批次 1 / 2 已完成）
+## 管理后台（阶段 3 · 批次 1 / 2 / 3 已完成）
 
 | 页面 | 路径 | 说明 |
 |---|---|---|
@@ -101,10 +101,13 @@ LLM_API_KEY=sk-xxxxxxxx
 | 概览 | `/admin` | 语料数 / 切片数 / 今日回答 / 待处理标记 + 系统状态 |
 | 语料管理 | `/admin/knowledge` | 上传 md/txt/有文字层 PDF → 切片 → 向量化 → 入库；列表、切片明细、删除 |
 | 提示词模板 | `/admin/prompts` | 编辑系统提示词、保存为新版本、一键激活（即时生效）、版本历史 |
+| 对话审计 | `/admin/audit` | 按员工/角色/日期/是否已标记筛选；看问答与引用原文；标记与撤销；导出 CSV |
 
 接口：`POST /admin/api/login`、`POST /admin/api/logout`、`GET /admin/api/me`、
 `GET/POST/DELETE /admin/api/docs`、`GET /admin/api/docs/{id}/chunks`、
-`DELETE /admin/api/chunks/{id}`、`GET/POST /admin/api/prompts`、`POST /admin/api/prompts/{id}/activate`。
+`DELETE /admin/api/chunks/{id}`、`GET/POST /admin/api/prompts`、`POST /admin/api/prompts/{id}/activate`、
+`GET /admin/api/audit/sessions`、`GET /admin/api/audit/sessions/{id}`、
+`POST/DELETE /admin/api/audit/messages/{id}/flag`、`GET /admin/api/audit/export.csv`。
 
 **初始账号**：首次启动且 `admin_user` 为空时，用 `.env` 里的
 `ADMIN_INIT_USERNAME` / `ADMIN_INIT_PASSWORD` 创建管理员（只执行一次）。
@@ -149,6 +152,45 @@ ADMIN_INIT_PASSWORD=<你自己的密码>
 所以命令行灌进去的文档在后台列表里能看到，去重与留痕规则也一致。
 `--force` 覆盖同内容文档。
 
+
+### 批次 3：对话审计（已实现）
+
+**页面能力**：筛选（员工工号模糊 / 角色 / 起止日期 / 是否已标记）→ 会话列表 →
+点开看完整问答与引用原文 → 对某条回答标记原因 + 备注 → 可撤销 → 按当前筛选导出 CSV。
+
+**标记原因枚举**（与 `audit_flag.reason` 的 CHECK 约束一致）
+
+| 代码 | 含义 |
+|---|---|
+| `out_of_scope` | 超出授权数据范围 |
+| `forbidden_action` | 索要付款/开票/签章等禁止动作 |
+| `delete_request` | 要求删除或修改数据 |
+| `fabrication` | 回答疑似编造（与引用原文不符） |
+| `other` | 其他 |
+
+**四条实现约定**
+
+1. **只做人工标记，不做自动判定**。关键词规则会把"我能否付款"这种正常提问也标成违规，
+   误报一多，审计页就没人看了。
+2. **撤销是软撤销**（`revoked_at` / `revoked_by`）。"谁在什么时候把标记撤了"本身就是审计信息。
+3. **同一回答同时只能有一条生效标记**（`uq_flag_active` 部分唯一索引），重复标记返回 `E4010`。
+4. **时间一律按服务器本地时区展示**并保留 offset。数据库存 UTC，直接截断会显示成 08:00，
+   用户明明 16:00 提的问——审计场景里这种歧义会让人对不上别处日志。
+
+**权限**：读要 `audit:view`（管理员 / 质量负责人 / 业务负责人），
+写要 `audit:flag`（管理员 / 质量负责人）。业务负责人只能看不能标——
+"是否构成越权/编造"是质量口径的判断，两个角色各标一套，统计就废了。
+
+**员工工号从哪来**：原型没有登录，对话页右上角有「工号 + 角色」输入框（存 localStorage，
+每次提问带上 `user_id`）。接 SSO 后改成从会话读取，接口形状不用变。
+
+**CSV 导出**：UTF-8 带 BOM（Excel 直接打开中文不乱码）、中文文件名走 RFC 5987 `filename*`、
+时间用本地时区、无结果时返回 `E4007` 而不是给一个只有表头的空文件。
+
+**交付前清理测试账号**（本机演示用的三个）：
+```sql
+DELETE FROM admin_user WHERE username IN ('lin', 'wang', 'qin');
+```
 
 ## 接口
 

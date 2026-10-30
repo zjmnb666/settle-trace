@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .filters label { display: block; font-size: 12px; color: var(--c-sub); margin-bottom: 3px; }
+  .filters input, .filters select {
+    padding: 6px 9px; border: 1px solid var(--c-line); border-radius: 6px;
+    font: inherit; font-size: 13px; background: #fff; color: var(--c-text);
+  }
+  tr.row-on td { background: #f2f7ff; }
+  .msg { border: 1px solid var(--c-line); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .msg.user { background: #fafbfc; }
+  .msg-h { font-size: 12px; color: var(--c-sub); margin-bottom: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .msg-b { white-space: pre-wrap; font-size: 13.5px; line-height: 1.7; }
+  .cites { margin-top: 8px; font-size: 12px; color: var(--c-sub); }
+  .cites div { padding: 2px 0; }
+  .flagbox { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--c-line); }
+  .flagform { display: none; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .flagform.on { display: flex; }
+  .flagform select, .flagform input {
+    padding: 5px 8px; border: 1px solid var(--c-line); border-radius: 6px;
+    font: inherit; font-size: 12.5px; color: var(--c-text);
+  }
+  .flagitem { font-size: 12.5px; color: var(--c-danger); margin-top: 6px; }
+  .flagitem .muted { color: var(--c-sub); }
+</style>
+
+<div class="card">
+  <h2>筛选</h2>
+  <div class="filters">
+    <div>
+      <label>员工（工号/姓名）</label>
+      <input type="text" id="fUser" placeholder="留空为全部" style="width:150px">
+    </div>
+    <div>
+      <label>角色</label>
+      <select id="fRole">
+        <option value="">全部</option>
+        <option value="service_specialist">一线服务专员</option>
+        <option value="coordinator">流程协调员</option>
+        <option value="business_owner">业务负责人</option>
+        <option value="quality_owner">质量负责人</option>
+        <option value="data_engineer">数字化工程师</option>
+        <option value="client_rep">客户协同代表</option>
+      </select>
+    </div>
+    <div>
+      <label>起始日期</label>
+      <input type="date" id="fFrom">
+    </div>
+    <div>
+      <label>截止日期</label>
+      <input type="date" id="fTo">
+    </div>
+    <div>
+      <label>标记状态</label>
+      <select id="fFlagged">
+        <option value="">全部</option>
+        <option value="yes">仅已标记</option>
+        <option value="no">仅未标记</option>
+      </select>
+    </div>
+    <button class="btn primary" id="searchBtn">查询</button>
+    <button class="btn" id="resetBtn">重置</button>
+    <div style="flex:1"></div>
+    <button class="btn" id="exportBtn">导出 CSV</button>
+  </div>
+  <p class="muted" style="margin:10px 0 0">
+    原型没有登录，<code>user_id</code> 由调用方传入；接入 SSO 后会自动填成工号。
+    标记只做人工判断——关键词规则会把"我能否付款"这类正常提问也标成违规。
+  </p>
+</div>
+
+<div class="card">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
+    <h2 style="margin:0">会话列表</h2>
+    <div style="flex:1"></div>
+    <span class="muted" id="listHint"></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:15%">最后活动</th>
+        <th style="width:11%">员工</th>
+        <th style="width:12%">角色</th>
+        <th>首问</th>
+        <th style="width:8%">问答数</th>
+        <th style="width:8%">标记</th>
+        <th style="width:10%">操作</th>
+      </tr>
+    </thead>
+    <tbody id="rows"><tr><td colspan="7" class="muted">加载中…</td></tr></tbody>
+  </table>
+  <div style="display:flex; gap:10px; align-items:center; margin-top:10px">
+    <button class="btn" id="prevBtn">上一页</button>
+    <button class="btn" id="nextBtn">下一页</button>
+    <span class="muted" id="pager"></span>
+  </div>
+</div>
+
+<div class="card" id="detailCard" style="display:none">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
+    <h2 style="margin:0" id="detailTitle">会话详情</h2>
+    <div style="flex:1"></div>
+    <button class="btn" id="closeDetail">收起</button>
+  </div>
+  <div class="muted" id="detailMeta" style="margin-bottom:12px"></div>
+  <div id="msgList"></div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const ROLE_LABEL = {
+  service_specialist: '一线服务专员', coordinator: '流程协调员',
+  business_owner: '业务负责人', quality_owner: '质量负责人',
+  data_engineer: '数字化工程师', client_rep: '客户协同代表',
+};
+const STATUS_LABEL = { ok: '完成', truncated: '未完成（断流）', streaming: '生成中', failed: '失败' };
+
+const rowsEl = document.getElementById('rows');
+const msgList = document.getElementById('msgList');
+const detailCard = document.getElementById('detailCard');
+let page = 1;
+let reasons = {};
+let currentSession = null;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+function fmtTime(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; }
+
+async function api(url, opts) {
+  const resp = await fetch(url, opts);
+  let data = null;
+  try { data = await resp.json(); } catch (e) { data = null; }
+  if (!resp.ok) throw new Error((data && data.message) || ('请求失败（HTTP ' + resp.status + '）'));
+  return data;
+}
+
+function query() {
+  const p = new URLSearchParams();
+  const u = document.getElementById('fUser').value.trim();
+  const r = document.getElementById('fRole').value;
+  const f = document.getElementById('fFrom').value;
+  const t = document.getElementById('fTo').value;
+  const g = document.getElementById('fFlagged').value;
+  if (u) p.set('user', u);
+  if (r) p.set('role', r);
+  if (f) p.set('date_from', f);
+  if (t) p.set('date_to', t);
+  if (g) p.set('flagged', g);
+  return p;
+}
+
+async function loadList() {
+  const p = query();
+  p.set('page', page);
+  p.set('page_size', 20);
+  rowsEl.innerHTML = '<tr><td colspan="7" class="muted">加载中…</td></tr>';
+  try {
+    const data = await api('/admin/api/audit/sessions?' + p.toString());
+    if (!data.items.length) {
+      rowsEl.innerHTML = '<tr><td colspan="7" class="muted">没有符合条件的会话。' +
+        '先到对话页 http://127.0.0.1:8000 提几个问题，这里就会有记录。</td></tr>';
+    } else {
+      rowsEl.innerHTML = data.items.map(s => `
+        <tr data-sid="${s.id}">
+          <td class="muted">${fmtTime(s.updated_at)}</td>
+          <td>${esc(s.user_id || '—')}</td>
+          <td>${esc(ROLE_LABEL[s.role] || s.role)}</td>
+          <td>${esc(s.title || '（无标题）')}</td>
+          <td>${s.question_count} 问</td>
+          <td>${s.flag_count ? '<span class="tag red">' + s.flag_count + '</span>'
+                             : '<span class="tag grey">0</span>'}</td>
+          <td><button class="btn" data-open="${s.id}">查看</button></td>
+        </tr>`).join('');
+    }
+    const pages = Math.max(1, Math.ceil(data.total / data.page_size));
+    document.getElementById('pager').textContent =
+      '共 ' + data.total + ' 个会话，第 ' + data.page + '/' + pages + ' 页';
+    document.getElementById('listHint').textContent =
+      data.items.some(x => x.flag_count) ? '红色 = 该会话存在生效中的标记' : '';
+  } catch (e) {
+    rowsEl.innerHTML = '<tr><td colspan="7" class="muted">加载失败：' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function openSession(sid) {
+  detailCard.style.display = '';
+  msgList.innerHTML = '<div class="muted">加载中…</div>';
+  try {
+    const d = await api('/admin/api/audit/sessions/' + sid);
+    currentSession = sid;
+    reasons = d.reasons;
+    document.getElementById('detailTitle').textContent =
+      '会话详情 · ' + (d.session.title || d.session.id.slice(0, 8));
+    document.getElementById('detailMeta').textContent =
+      (d.session.user_id || '未标识员工') + ' · ' +
+      (ROLE_LABEL[d.session.role] || d.session.role) + ' · 开始于 ' +
+      fmtTime(d.session.created_at) + ' · 会话 ' + d.session.id;
+
+    msgList.innerHTML = d.messages.map(m => {
+      const head = m.role === 'user'
+        ? `<span>提问 #${m.seq}</span><span>${fmtTime(m.created_at)}</span>`
+        : `<span>回答 #${m.seq}</span><span>${STATUS_LABEL[m.status] || m.status}</span>` +
+          (m.latency_ms ? `<span>${(m.latency_ms / 1000).toFixed(1)}s</span>` : '') +
+          (m.model ? `<span>${esc(m.model)}</span>` : '');
+
+      const cites = (m.citations || []).map(c =>
+        `<div>[${c.rank}] ${esc(c.source_file)} · ${esc(c.heading || '（无标题）')}`
+        + ` · 第 ${c.char_start}-${c.char_end} 字</div>`).join('');
+
+      const flags = (m.flags || []).map(f => `
+        <div class="flagitem">
+          ${f.revoked_at
+            ? `<s>${esc(f.reason_label)}</s> <span class="muted">已于 ${fmtTime(f.revoked_at)} 撤销</span>`
+            : `● ${esc(f.reason_label)}${f.note ? '（' + esc(f.note) + '）' : ''}
+               <span class="muted">— ${esc(f.flagged_by || '')} ${fmtTime(f.created_at)}</span>`}
+          ${f.revoked_at ? '' : `<button class="btn danger" data-unflag="${m.id}">撤销</button>`}
+        </div>`).join('');
+
+      const activeFlag = (m.flags || []).some(f => !f.revoked_at);
+      const flagUI = m.role !== 'assistant' || activeFlag ? '' : `
+        <div class="flagbox">
+          <button class="btn danger" data-showflag="${m.id}">标记这条回答</button>
+          <div class="flagform" id="ff-${m.id}">
+            <select data-reason="${m.id}">
+              ${Object.entries(reasons).map(([k, v]) =>
+                `<option value="${k}">${esc(v)}</option>`).join('')}
+            </select>
+            <input type="text" data-note="${m.id}" placeholder="补充说明（可选）" style="min-width:220px">
+            <button class="btn primary" data-flag="${m.id}">确认标记</button>
+            <button class="btn" data-cancel="${m.id}">取消</button>
+          </div>
+        </div>`;
+
+      return `<div class="msg ${m.role}">
+        <div class="msg-h">${head}</div>
+        <div class="msg-b">${esc(m.content)}</div>
+        ${cites ? '<div class="cites">' + cites + '</div>' : ''}
+        ${flags}
+        ${flagUI}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    msgList.innerHTML = '<div class="muted">加载失败：' + esc(e.message) + '</div>';
+  }
+}
+
+// ---- 列表 ----
+rowsEl.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (btn && btn.dataset.open) { openSession(btn.dataset.open); }
+});
+
+// ---- 详情里的标记交互 ----
+msgList.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button');
+  if (!btn) return;
+
+  if (btn.dataset.showflag) {
+    document.getElementById('ff-' + btn.dataset.showflag).classList.toggle('on');
+    return;
+  }
+  if (btn.dataset.cancel) {
+    document.getElementById('ff-' + btn.dataset.cancel).classList.remove('on');
+    return;
+  }
+  if (btn.dataset.flag) {
+    const mid = btn.dataset.flag;
+    const reason = document.querySelector('[data-reason="' + mid + '"]').value;
+    const note = document.querySelector('[data-note="' + mid + '"]').value;
+    btn.disabled = true;
+    try {
+      await api('/admin/api/audit/messages/' + mid + '/flag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+        body: JSON.stringify({ reason: reason, note: note }),
+      });
+      showError('');
+      await openSession(currentSession);
+      loadList();
+    } catch (e) {
+      showError('标记失败：' + e.message);
+      btn.disabled = false;
+    }
+    return;
+  }
+  if (btn.dataset.unflag) {
+    if (!confirm('撤销这条标记？撤销记录会保留（谁撤的、何时撤的可查）。')) return;
+    btn.disabled = true;
+    try {
+      await api('/admin/api/audit/messages/' + btn.dataset.unflag + '/flag', {
+        method: 'DELETE', headers: { 'X-CSRF-Token': CSRF },
+      });
+      showError('');
+      await openSession(currentSession);
+      loadList();
+    } catch (e) {
+      showError('撤销失败：' + e.message);
+      btn.disabled = false;
+    }
+  }
+});
+
+// ---- 筛选与分页 ----
+document.getElementById('searchBtn').addEventListener('click', () => { page = 1; loadList(); });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  ['fUser', 'fFrom', 'fTo'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('fRole').value = '';
+  document.getElementById('fFlagged').value = '';
+  page = 1; loadList();
+});
+document.getElementById('prevBtn').addEventListener('click', () => {
+  if (page > 1) { page--; loadList(); }
+});
+document.getElementById('nextBtn').addEventListener('click', () => { page++; loadList(); });
+document.getElementById('closeDetail').addEventListener('click', () => {
+  detailCard.style.display = 'none';
+});
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const p = query();
+  window.location.href = '/admin/api/audit/export.csv?' + p.toString();
+});
+
+loadList();
+</script>
+{% endblock %}
