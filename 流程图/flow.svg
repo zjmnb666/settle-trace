@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240.0" height="1690.0" viewBox="0 0 1240.0 1690.0" font-family='"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif'>
+<rect width="1240.0" height="1690.0" fill="#FFFFFF"/>
+<g stroke-linecap="round">
+<text x="150" y="52" font-size="27" font-weight="700" fill="#1F3A5F">《贸易服务结算与费用追溯》</text>
+<text x="150" y="80" font-size="12.5" fill="#5C7590">代理费用结算单 · 详细作业流程 ｜ 试点范围：1 个批次、40 份账单 ｜ 标注：费时费钱环节 · 必须人工介入环节</text>
+<line x1="150" y1="94" x2="1130" y2="94" stroke="#E7EDF4" stroke-width="1.2"/>
+<rect x="88" y="134.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="150.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">01</text>
+<rect x="150" y="110" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="140" font-size="15" font-weight="700" fill="#1F3A5F">费用登记（草稿）</text>
+<text x="172" y="162" font-size="12" fill="#5C7590">一线专员提交变更 · 模型无审批权</text>
+<rect x="432.0" y="123.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="137.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<line x1="514" y1="146.0" x2="618" y2="146.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="182" x2="330" y2="193" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,192 335,192 330,202" fill="#8CA3BA"/>
+<rect x="88" y="248.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="264.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">02</text>
+<polygon points="115,260 330,202 545,260 330,318" fill="#F8FBFF" stroke="#A9C8E8" stroke-width="1.2"/>
+<text x="267.0" y="259" font-size="14" font-weight="700" fill="#1F3A5F">是否在客户截止前？</text>
+<text x="330" y="281" font-size="11.5" fill="#5C7590" text-anchor="middle">截止后补录须登记缺项，不默认通过</text>
+<text x="342" y="320" font-size="11.5" fill="#5C7590">是</text>
+<text x="556" y="246" font-size="11.5" fill="#5C7590">否</text>
+<line x1="545" y1="260" x2="611" y2="260" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="610,255 610,265 620,260" fill="#8CA3BA"/>
+<line x1="330" y1="318" x2="330" y2="331" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,330 335,330 330,340" fill="#8CA3BA"/>
+<rect x="88" y="364.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="380.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">03</text>
+<rect x="150" y="340" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="370" font-size="15" font-weight="700" fill="#1F3A5F">凭证与合同服务项取证</text>
+<text x="172" y="392" font-size="12" fill="#5C7590">原币种 · 汇率日期 · 凭证编号 · 三处取数</text>
+<rect x="432.0" y="353.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="367.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<rect x="377.0" y="353.0" width="49.0" height="20" rx="10" fill="#FBE0E2" stroke="#F3C3C8" stroke-width="0.8"/>
+<text x="401.5" y="367.0" font-size="11" fill="#B4232A" text-anchor="middle" font-weight="600">最耗时</text>
+<line x1="514" y1="376.0" x2="618" y2="376.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="412" x2="330" y2="423" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,422 335,422 330,432" fill="#8CA3BA"/>
+<rect x="88" y="456.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="472.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">04</text>
+<rect x="150" y="432" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="462" font-size="15" font-weight="700" fill="#1F3A5F">服务项映射与缺项清单</text>
+<text x="172" y="484" font-size="12" fill="#5C7590">费用名称 ↔ 合同服务项 · 说明反复改写</text>
+<rect x="432.0" y="445.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="459.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<rect x="388.0" y="445.0" width="38.0" height="20" rx="10" fill="#FCDCC4" stroke="#F2C6A4" stroke-width="0.8"/>
+<text x="407.0" y="459.0" font-size="11" fill="#A85B14" text-anchor="middle" font-weight="600">耗时</text>
+<line x1="330" y1="504" x2="330" y2="515" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,514 335,514 330,524" fill="#8CA3BA"/>
+<rect x="88" y="548.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="564.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">05</text>
+<rect x="150" y="524" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="554" font-size="15" font-weight="700" fill="#1F3A5F">交接登记</text>
+<text x="172" y="576" font-size="12" fill="#5C7590">最新版本 · 未确认事项 · 截止时间 · 接收人</text>
+<rect x="432.0" y="537.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="551.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<line x1="330" y1="596" x2="330" y2="607" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,606 335,606 330,616" fill="#8CA3BA"/>
+<rect x="88" y="640.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="656.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">06</text>
+<rect x="150" y="616" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="646" font-size="15" font-weight="700" fill="#1F3A5F">双人核对</text>
+<text x="172" y="668" font-size="12" fill="#5C7590">当班人员 + 复核人 · 逐字段比对</text>
+<rect x="432.0" y="629.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="643.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<rect x="377.0" y="629.0" width="49.0" height="20" rx="10" fill="#FBE0E2" stroke="#F3C3C8" stroke-width="0.8"/>
+<text x="401.5" y="643.0" font-size="11" fill="#B4232A" text-anchor="middle" font-weight="600">最耗时</text>
+<line x1="514" y1="652.0" x2="618" y2="652.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="688" x2="330" y2="699" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,698 335,698 330,708" fill="#8CA3BA"/>
+<rect x="88" y="732.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="748.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">07</text>
+<rect x="150" y="708" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="738" font-size="15" font-weight="700" fill="#1F3A5F">关键字段与质量检查</text>
+<text x="172" y="760" font-size="12" fill="#5C7590">重复编号 · 空时间 · 版本断链 · 单位差异</text>
+<rect x="454.0" y="721.0" width="38.0" height="20" rx="10" fill="#FCDCC4" stroke="#F2C6A4" stroke-width="0.8"/>
+<text x="473.0" y="735.0" font-size="11" fill="#A85B14" text-anchor="middle" font-weight="600">耗时</text>
+<line x1="514" y1="744.0" x2="618" y2="744.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="780" x2="330" y2="791" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,790 335,790 330,800" fill="#8CA3BA"/>
+<rect x="88" y="846.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="862.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">08</text>
+<polygon points="115,858 330,800 545,858 330,916" fill="#F8FBFF" stroke="#A9C8E8" stroke-width="1.2"/>
+<rect x="209.0" y="834.0" width="76.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="247.0" y="848.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<text x="297.0" y="857" font-size="14" font-weight="700" fill="#1F3A5F">跨币种重复项可否解释？</text>
+<text x="330" y="879" font-size="11.5" fill="#5C7590" text-anchor="middle">只提示 · 不自动删除 · 保留原行</text>
+<text x="556" y="844" font-size="11.5" fill="#5C7590">否</text>
+<text x="342" y="922" font-size="11.5" fill="#5C7590">是</text>
+<line x1="545" y1="858" x2="611" y2="858" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="610,853 610,863 620,858" fill="#8CA3BA"/>
+<line x1="330" y1="916" x2="330" y2="927" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,926 335,926 330,936" fill="#8CA3BA"/>
+<rect x="88" y="982.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="998.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">09</text>
+<polygon points="115,994 330,936 545,994 330,1052" fill="#F8FBFF" stroke="#A9C8E8" stroke-width="1.2"/>
+<rect x="244.0" y="970.0" width="76.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="282.0" y="984.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<text x="332.0" y="993" font-size="14" font-weight="700" fill="#1F3A5F">版本可确认？</text>
+<text x="330" y="1015" font-size="11.5" fill="#5C7590" text-anchor="middle">版本有效期 + 确认状态双条件</text>
+<text x="556" y="980" font-size="11.5" fill="#5C7590">否</text>
+<text x="342" y="1058" font-size="11.5" fill="#5C7590">是</text>
+<line x1="545" y1="994" x2="611" y2="994" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="610,989 610,999 620,994" fill="#8CA3BA"/>
+<line x1="330" y1="1052" x2="330" y2="1073" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,1072 335,1072 330,1082" fill="#8CA3BA"/>
+<rect x="88" y="1106.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1122.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">10</text>
+<rect x="150" y="1082" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="1112" font-size="15" font-weight="700" fill="#1F3A5F">正式确认</text>
+<text x="172" y="1134" font-size="12" fill="#5C7590">授权业务负责人签字 · 提交 ≠ 确认</text>
+<rect x="432.0" y="1095.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="1109.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<rect x="388.0" y="1095.0" width="38.0" height="20" rx="10" fill="#FDF0C4" stroke="#EBD48A" stroke-width="0.8"/>
+<text x="407.0" y="1109.0" font-size="11" fill="#92700F" text-anchor="middle" font-weight="600">等待</text>
+<line x1="514" y1="1118.0" x2="618" y2="1118.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="1154" x2="330" y2="1171" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,1170 335,1170 330,1180" fill="#8CA3BA"/>
+<rect x="88" y="1204.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1220.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">11</text>
+<rect x="150" y="1180" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="1210" font-size="15" font-weight="700" fill="#1F3A5F">客户口径确认</text>
+<text x="172" y="1232" font-size="12" fill="#5C7590">结果用途由客户方确认 · 不推测意图</text>
+<rect x="432.0" y="1193.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="1207.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<line x1="514" y1="1216.0" x2="618" y2="1216.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="1252" x2="330" y2="1269" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,1268 335,1268 330,1278" fill="#8CA3BA"/>
+<rect x="88" y="1302.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1318.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">12</text>
+<rect x="150" y="1278" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="1308" font-size="15" font-weight="700" fill="#1F3A5F">审批放行</text>
+<text x="172" y="1330" font-size="12" fill="#5C7590">异常放行 · 跨企业资料访问授权</text>
+<rect x="432.0" y="1291.0" width="60.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="462.0" y="1305.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<rect x="388.0" y="1291.0" width="38.0" height="20" rx="10" fill="#FDF0C4" stroke="#EBD48A" stroke-width="0.8"/>
+<text x="407.0" y="1305.0" font-size="11" fill="#92700F" text-anchor="middle" font-weight="600">等待</text>
+<line x1="514" y1="1314.0" x2="618" y2="1314.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="1350" x2="330" y2="1367" stroke="#8CA3BA" stroke-width="1.6" />
+<polygon points="325,1366 335,1366 330,1376" fill="#8CA3BA"/>
+<rect x="88" y="1400.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1416.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">13</text>
+<rect x="150" y="1376" width="360" height="72" rx="10" fill="#EDF4FC" stroke="#A9C8E8"/>
+<text x="172" y="1406" font-size="15" font-weight="700" fill="#1F3A5F">归档与审计</text>
+<text x="172" y="1428" font-size="12" fill="#5C7590">谁查过 · 哪个版本 · 什么建议 · 谁确认</text>
+<path d="M620,906 L585,906 L585,1060 L470,1060 L470,1073" fill="none" stroke="#8CA3BA" stroke-width="1.4" stroke-dasharray="5 5"/>
+<polygon points="465,1073 475,1073 470,1082" fill="#8CA3BA"/>
+<rect x="620" y="104" width="510" height="92" rx="9" fill="#F7F9FC" stroke="#D5DFEA"/>
+<text x="638" y="130" font-size="13" font-weight="700" fill="#33506E">读取失败时</text>
+<text x="638" y="152" font-size="12" fill="#5C7590">保留上次快照并标记时间</text>
+<text x="638" y="174" font-size="12" fill="#5C7590">提示人工核查，不编造最新状态、不静默重试</text>
+<rect x="620" y="204" width="510" height="92" rx="9" fill="#FBF1DE" stroke="#E4C89B"/>
+<text x="638" y="230" font-size="13" font-weight="700" fill="#8A5B22">挂起 · 截止后补录</text>
+<text x="638" y="252" font-size="12" fill="#7A6A50">缺项登记 + 未结项挂账，不默认通过</text>
+<text x="638" y="274" font-size="12" fill="#7A6A50">补齐后进入下一批次，不倒签发生时间</text>
+<rect x="620" y="336" width="510" height="92" rx="9" fill="#F7F9FC" stroke="#D5DFEA"/>
+<text x="638" y="362" font-size="13" font-weight="700" fill="#33506E">取证来源分散</text>
+<text x="638" y="384" font-size="12" fill="#5C7590">内部服务台 · 业务台账 · 文件库三处取数</text>
+<text x="638" y="406" font-size="12" fill="#5C7590">尚无统一关联编号，只能靠字段组合匹配</text>
+<rect x="620" y="600" width="510" height="92" rx="9" fill="#FBF1DE" stroke="#E4C89B"/>
+<text x="638" y="626" font-size="13" font-weight="700" fill="#8A5B22">人工核对队列（不可自动）</text>
+<text x="638" y="648" font-size="12" fill="#7A6A50">被阻断 · 禁止出结果；缺字段 → 截止后补发</text>
+<text x="638" y="670" font-size="12" fill="#7A6A50">人工决策后方可继续，模型不给结论</text>
+<rect x="620" y="700" width="510" height="92" rx="9" fill="#FBF1DE" stroke="#E4C89B"/>
+<text x="638" y="726" font-size="13" font-weight="700" fill="#8A5B22">缺项清单</text>
+<text x="638" y="748" font-size="12" fill="#7A6A50">缺什么 + 来源位置，一页呈现</text>
+<text x="638" y="770" font-size="12" fill="#7A6A50">补录后须签字，减少重复复核</text>
+<rect x="620" y="806" width="510" height="114" rx="9" fill="#FBF1DE" stroke="#E4C89B"/>
+<text x="638" y="832" font-size="13" font-weight="700" fill="#8A5B22">疑似重复 · 不自动删除</text>
+<text x="638" y="854" font-size="12" fill="#7A6A50">保留原行与原始版本，由人工判断责任</text>
+<text x="638" y="876" font-size="12" fill="#7A6A50">币种换算口径未核实，提示不等于结论</text>
+<text x="638" y="898" font-size="12" fill="#7A6A50">→ 记录留痕后回到「正式确认」继续</text>
+<rect x="620" y="938" width="510" height="92" rx="9" fill="#FBF1DE" stroke="#E4C89B"/>
+<text x="638" y="964" font-size="13" font-weight="700" fill="#8A5B22">无法确认 · 挂起</text>
+<text x="638" y="986" font-size="12" fill="#7A6A50">版本 / 关键字段对不上 → 进人工处理队列</text>
+<text x="638" y="1008" font-size="12" fill="#7A6A50">必要时暂停试点，不能默认通过</text>
+<rect x="620" y="1064" width="510" height="92" rx="9" fill="#F7F9FC" stroke="#D5DFEA"/>
+<text x="638" y="1090" font-size="13" font-weight="700" fill="#33506E">授权人名单待确认</text>
+<text x="638" y="1112" font-size="12" fill="#5C7590">名单由业务负责人定 · 质量负责人核权限边界</text>
+<text x="638" y="1134" font-size="12" fill="#5C7590">协调员落责任清单，工程师确认能否留痕</text>
+<rect x="620" y="1156" width="510" height="92" rx="9" fill="#F7F9FC" stroke="#D5DFEA"/>
+<text x="638" y="1182" font-size="13" font-weight="700" fill="#33506E">对外口径</text>
+<text x="638" y="1204" font-size="12" fill="#5C7590">结果用途由客户协同代表确认后方可对外</text>
+<text x="638" y="1226" font-size="12" fill="#5C7590">投诉先登记原始问题 + 版本，不推测客户意图</text>
+<rect x="620" y="1248" width="510" height="92" rx="9" fill="#FBF1DE" stroke="#E4C89B"/>
+<text x="638" y="1274" font-size="13" font-weight="700" fill="#8A5B22">三类人工审批点</text>
+<text x="638" y="1296" font-size="12" fill="#7A6A50">正式结论确认 · 异常放行 · 跨企业资料访问</text>
+<text x="638" y="1318" font-size="12" fill="#7A6A50">异常放行是否单设审批点尚未核实</text>
+<line x1="150" y1="1478" x2="1130" y2="1478" stroke="#E7EDF4" stroke-width="1.2"/>
+<rect x="150.0" y="1484.0" width="76.0" height="20" rx="10" fill="#FBE0E2" stroke="#F3C3C8" stroke-width="0.8"/>
+<text x="188.0" y="1498.0" font-size="11" fill="#B4232A" text-anchor="middle" font-weight="600">最耗时</text>
+<text x="240" y="1498" font-size="11.5" fill="#5C7590">费时又费钱：取证与双人核对，异常对账约 55 分钟 / 份，占主要工时（月模拟 160 份为虚构基线）</text>
+<rect x="150.0" y="1514.0" width="76.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="188.0" y="1528.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">必须人工</text>
+<text x="240" y="1528" font-size="11.5" fill="#5C7590">10 处关键动作不可自动化：登记 · 取证 · 映射 · 交接 · 核对 · 重复判断 · 版本判断 · 正式确认 · 审批放行 · 客户确认</text>
+<rect x="150.0" y="1544.0" width="76.0" height="20" rx="10" fill="#FCDCC4" stroke="#F2C6A4" stroke-width="0.8"/>
+<text x="188.0" y="1558.0" font-size="11" fill="#A85B14" text-anchor="middle" font-weight="600">耗时</text>
+<text x="240" y="1558" font-size="11.5" fill="#5C7590">质量检查执行、结果出具、归档留痕：单步耗时低，可交系统自动完成</text>
+<rect x="150.0" y="1574.0" width="76.0" height="20" rx="10" fill="#FDF0C4" stroke="#EBD48A" stroke-width="0.8"/>
+<text x="188.0" y="1588.0" font-size="11" fill="#92700F" text-anchor="middle" font-weight="600">等待</text>
+<text x="240" y="1588" font-size="11.5" fill="#5C7590">等待授权人签字 / 审批：属外部等待，不压缩、不代签、不并行跳过</text>
+<text x="150" y="1620" font-size="11.5" fill="#B4232A">红线：不自动付款 · 不修改已确认账单 · 疑似重复项不自动删除 · 跨企业资料只按明确授权范围访问</text>
+<text x="150" y="1648" font-size="11" fill="#93A6B8">依据 discovery-report.md 访谈整理：全部为演练假设与合成样本，需人工确认后方可进入试点</text>
+</g></svg>

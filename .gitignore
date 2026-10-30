@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 原型运行产物（可用 rag_cli.py build 重建，不入库）
+project/index/
+
+# 内部交接与商务判断，不公开
+HANDOFF.md
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

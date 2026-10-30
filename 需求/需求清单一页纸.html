@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="docx-page-size" content="A4">
+<title>SettleTrace 需求清单（一页纸）</title>
+<style>
+  @page { @bottom-center { content: none; } }
+  :root {
+    --fs-title: 13.5pt;
+    --fs-sub: 8pt;
+    --fs-h: 8.8pt;
+    --fs-body: 8pt;
+    --fs-tbl: 7.6pt;
+    --fs-xs: 7pt;
+    --ff-heading: "SimHei", "黑体", "Microsoft YaHei", sans-serif;
+    --ff-body: "SimSun", "宋体", serif;
+    --ff-mono: Consolas, monospace;
+    --lh-body: 1.38;
+    --fw-bold: 700;
+    --color-primary: #1565C0;
+    --color-heading: #1A237E;
+    --color-text: #212121;
+    --color-muted: #5A6673;
+    --color-border: #C9D3DF;
+    --color-bg: #FFFFFF;
+    --color-highlight: #EDF3FA;
+    --color-warn: #FDF3F3;
+    --color-red: #B4232A;
+    --color-cell-bg: #F7F9FC;
+    --sp-1: 0.1em;
+    --sp-2: 0.2em;
+    --sp-3: 0.3em;
+    --sp-4: 0.45em;
+    --sp-5: 0.6em;
+    --sp-cell: 0.07em 0.28em;
+    --sp-cell-h: 0.09em 0.28em;
+    --page-content-width: 17.8cm;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: var(--ff-body); font-size: var(--fs-body); line-height: var(--lh-body);
+    color: var(--color-text); background: var(--color-bg);
+    max-width: var(--page-content-width); margin: 0 auto; padding: 0; }
+
+  p.title { font-family: var(--ff-heading); font-size: var(--fs-title); font-weight: var(--fw-bold);
+    color: var(--color-heading); text-indent: 0; text-align: center; margin-bottom: var(--sp-1); }
+  p.sub { font-size: var(--fs-sub); color: var(--color-muted); text-indent: 0;
+    text-align: center; margin-bottom: var(--sp-3); }
+
+  h2.sec { font-family: var(--ff-heading); font-size: var(--fs-h); font-weight: var(--fw-bold);
+    color: var(--color-primary); text-indent: 0; margin-top: var(--sp-3); margin-bottom: var(--sp-1);
+    border-bottom: 0.8pt solid var(--color-primary); padding-bottom: var(--sp-1); }
+  p { text-indent: 2em; margin-bottom: var(--sp-2); }
+  p.flat { text-indent: 0; }
+
+  .executive-summary { border-left: 3pt solid var(--color-primary); background: var(--color-highlight);
+    padding: var(--sp-cell); margin-bottom: var(--sp-3); }
+  p.summary-line { text-indent: 0; font-size: var(--fs-body); color: var(--color-text);
+    margin-bottom: var(--sp-1); }
+  table.t { width: 100%; border-collapse: collapse; font-size: var(--fs-tbl);
+    margin-bottom: var(--sp-2); }
+  table.t th { font-family: var(--ff-heading); font-weight: var(--fw-bold); color: var(--color-heading);
+    background: var(--color-highlight); border: 0.5pt solid var(--color-border);
+    padding: var(--sp-cell-h); text-indent: 0; text-align: left; }
+  table.t td { border: 0.5pt solid var(--color-border); padding: var(--sp-cell);
+    text-indent: 0; vertical-align: top; }
+  table.t td.k { font-family: var(--ff-heading); font-weight: var(--fw-bold); color: var(--color-heading);
+    background: var(--color-cell-bg); white-space: nowrap; }
+  table.t td.c { text-align: center; }
+  table.t tr.warn td { background: var(--color-warn); color: var(--color-red); }
+  code { font-family: var(--ff-mono); font-size: var(--fs-xs); color: var(--color-primary); }
+</style>
+</head>
+<body>
+<section role="body" data-margin-top="1.4" data-margin-bottom="1.4" data-margin-left="1.6" data-margin-right="1.6">
+
+<p class="title">SettleTrace · 贸易服务结算与费用追溯 — 需求清单</p>
+<p class="sub">一页纸评审结论 v0.1　｜　2026-10-30　｜　依据：访谈演练报告（合成样本）+ 十项架构评审　｜　试点：1 个批次 / 40 份账单 / 4 周</p>
+
+<div class="executive-summary">
+  <p class="summary-line"><b>一句话结论：</b>不做「结算平台」，做「核对与留痕型」旁路系统——只读接入、追加式留痕、单据级追溯、两维权限；人工只保留疑点裁定、正式确认、审批放行三处，其余交系统与模型。</p>
+</div>
+
+<h2 class="sec">一、范围边界</h2>
+<table class="t">
+  <thead><tr><th style="width:50%">在范围内（试点交付）</th><th style="width:50%">明确排除（写入合同边界）</th></tr></thead>
+  <tbody><tr>
+    <td>① 单批次代理费用结算单核对（试点 40 份）<br>② 取证与来源定位：凭证 / 合同 / 台账三源<br>③ 版本链与「有效期 + 确认状态」双条件判定<br>④ 疑点提示与人工裁定（只提示不删除）<br>⑤ 正式确认、审批放行、归档留痕</td>
+    <td>① 付款执行与任何资金动作<br>② 真实税务判定与税务申报<br>③ 修改已确认账单<br>④ 向现有系统写回或触发动作<br>⑤ 对外出具正式结算单（无签章效力）<br>⑥ 成本中心分摊与财务核算对接</td>
+  </tr></tbody>
+</table>
+
+<h2 class="sec">二、核心实体（11 个）</h2>
+<table class="t">
+  <thead><tr><th style="width:22%">实体</th><th style="width:44%">关键字段</th><th style="width:34%">约束 / 说明</th></tr></thead>
+  <tbody>
+    <tr><td class="k">结算单 Settlement</td><td>系统主键、原业务编号、客户、批次、状态</td><td>无统一编号，须自建主键 + 反向映射</td></tr>
+    <tr><td class="k">结算单版本 Version</td><td>版本号、有效期起止、确认状态、原始文件哈希</td><td>追加式，作废保留原因，不物理删除</td></tr>
+    <tr><td class="k">费用行 FeeLine</td><td>服务项、原币金额、币种、汇率、汇率日期、折算金额、状态</td><td>金额 <code>decimal(18,6)</code>；禁浮点</td></tr>
+    <tr><td class="k">凭证 Voucher</td><td>类型、票号、开票方、金额、文件、内容哈希</td><td>按哈希去重；票号做唯一性提示</td></tr>
+    <tr><td class="k">费用行—凭证关联</td><td>费用行 ID、凭证 ID、来源定位、匹配方式</td><td><b>无来源定位的结果视为无效</b></td></tr>
+    <tr><td class="k">服务项映射 Mapping</td><td>费用名称、合同服务项、置信度、确认人</td><td>映射一次沉淀，二次直接复用</td></tr>
+    <tr><td class="k">缺项 Gap</td><td>缺什么、来源位置、责任人、截止时间、补齐签字</td><td>一页原则；签字即确认状态位</td></tr>
+    <tr><td class="k">疑点 Suspect</td><td>类型、重复概率、依据链、裁定结论、裁定人</td><td>系统不提供删除动作</td></tr>
+    <tr><td class="k">审批任务 Approval</td><td>类型、审批人、结论、时间、意见</td><td>三类：结论确认 / 异常放行 / 跨企业访问</td></tr>
+    <tr><td class="k">汇率 Rate</td><td>币种对、日期、来源、规则版本</td><td>汇率快照，支持历史重算</td></tr>
+    <tr><td class="k">审计留痕 AuditLog</td><td>谁、何时、看/建议/确认、涉及版本、模型版本</td><td>三段式，可导出，不可改</td></tr>
+  </tbody>
+</table>
+
+<h2 class="sec">三、主流程与三个不可逆控制点</h2>
+<table class="t">
+  <thead><tr><th style="width:9%">步</th><th style="width:27%">环节</th><th style="width:22%">执行主体</th><th style="width:42%">控制点</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td>建单登记</td><td>系统自动</td><td>解析邮件/附件/台账，模型无审批权</td></tr>
+    <tr><td class="c">2</td><td>截止校验</td><td>系统自动</td><td>超期挂起并生成缺项清单，不默认通过</td></tr>
+    <tr><td class="c">3</td><td>取证抽取</td><td>AI 辅助</td><td>5 字段三源交叉，冲突标红附原文页，转人工</td></tr>
+    <tr><td class="c">4</td><td>服务项映射</td><td>AI 辅助</td><td>置信度低于阈值转人工，映射可回溯</td></tr>
+    <tr><td class="c">5</td><td>机器预核对</td><td>AI 辅助</td><td>只推差异项，人工复核后才闭环</td></tr>
+    <tr class="warn"><td class="c">6</td><td>疑点裁定</td><td>人工</td><td>不可逆①：只提示不删除，保留原行与原版</td></tr>
+    <tr class="warn"><td class="c">7</td><td>正式确认</td><td>人工闸口</td><td>不可逆②：授权人电子签，系统不代签</td></tr>
+    <tr class="warn"><td class="c">8</td><td>审批放行</td><td>人工闸口</td><td>不可逆③：规则前置校验，仅异常上会</td></tr>
+  </tbody>
+</table>
+
+<h2 class="sec">四、角色与权限（6 类，非「员工/管理员」两级）</h2>
+<table class="t">
+  <thead><tr><th style="width:24%">角色</th><th style="width:38%">可执行动作</th><th style="width:38%">数据范围</th></tr></thead>
+  <tbody>
+    <tr><td class="k">一线服务专员</td><td>建单、补录、提交变更</td><td>本人 / 本组所辖单据</td></tr>
+    <tr><td class="k">流程协调员</td><td>交接登记、跟踪未结项、催办</td><td>本批次全部单据</td></tr>
+    <tr><td class="k">业务负责人</td><td>正式确认（签字）、决定试点范围</td><td>授权客户/项目</td></tr>
+    <tr><td class="k">审核与质量负责人</td><td>裁定疑点、裁口径、暂停试点</td><td>全量只读 + 裁定权</td></tr>
+    <tr><td class="k">数字化工程师</td><td>数据接入、字段映射、导出</td><td>脱敏数据，无业务写权</td></tr>
+    <tr><td class="k">客户协同代表</td><td>对外口径确认、投诉登记</td><td>仅本客户相关结果</td></tr>
+  </tbody>
+</table>
+
+<h2 class="sec">五、非功能底线</h2>
+<table class="t">
+  <thead><tr><th style="width:9%">项</th><th style="width:41%">要求</th><th style="width:9%">项</th><th style="width:41%">要求</th></tr></thead>
+  <tbody>
+    <tr><td class="k">性能</td><td>单份抽取 + 比对 ≤ 90 秒；40 份批量 ≤ 30 分钟</td>
+        <td class="k">精度</td><td>金额 decimal(18,6)；汇率快照 + 规则版本</td></tr>
+    <tr><td class="k">审计</td><td>查询 / 建议 / 确认三段留痕，可按单据导出</td>
+        <td class="k">留存</td><td>原始版本 + 修订原因 + 确认人，保留 10 年</td></tr>
+    <tr><td class="k">部署</td><td>试点公有云（脱敏样本）→ 生产前迁专有云；不绑云厂商</td>
+        <td class="k">集成</td><td>只读旁路（导出/只读账号），不支持写回</td></tr>
+  </tbody>
+</table>
+
+<h2 class="sec">六、十项评审结论与待确认假设</h2>
+<table class="t">
+  <thead><tr><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Q5</th><th>Q6</th><th>Q7</th><th>Q8</th><th>Q9</th><th>Q10</th></tr></thead>
+  <tbody>
+    <tr><td class="c">A 只核对</td><td class="c">A→B 分阶段</td><td class="c">A 只读</td><td class="c">B 自建主键</td><td class="c">A 单据级</td><td class="c">B 追加式</td><td class="c">B 多币种</td><td class="c">A 形式校验</td><td class="c">B（轻量）</td><td class="c">A 单库</td></tr>
+  </tbody>
+</table>
+<p class="flat"><b>四项待确认假设</b>：① 集成保持只读，若开放写回接口则工作量按 ×2 重估；② 6 类角色暂不再细分，若需按项目/成本中心授权则升级为三维模型；③ 现状指标（55 分钟/份、160 份/月）为虚构基线，须首周实测校准；④ 不做成本分摊与税务判定，如甲方财务要求对接，列入二期。</p>
+
+</section>
+</body>
+</html>

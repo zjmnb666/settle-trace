@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240.0" height="1690.0" viewBox="0 0 1240.0 1690.0" font-family='"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif'>
+<rect width="1240.0" height="1690.0" fill="#FFFFFF"/>
+<g stroke-linecap="round">
+<text x="150" y="52" font-size="26" font-weight="700" fill="#1F3A5F">《贸易服务结算与费用追溯》· AI 数智化作业流程</text>
+<text x="150" y="78" font-size="12.5" fill="#5C7590">代理费用结算单 ｜ 试点：1 个批次、40 份账单 ｜ 蓝色=系统自动 · 紫色=AI 辅助 · 绿色=人工介入</text>
+<text x="150" y="112" font-size="12" fill="#8A9AAA">AI 能力底座</text>
+<rect x="232" y="94" width="123.5" height="26" rx="13" fill="#F3F0FD" stroke="#CFC5F0"/>
+<circle cx="245" cy="107" r="3" fill="#7B61C9"/>
+<text x="254" y="111.5" font-size="12.5" fill="#57429F">多模态文档抽取</text>
+<rect x="365.5" y="94" width="111.0" height="26" rx="13" fill="#F3F0FD" stroke="#CFC5F0"/>
+<circle cx="378.5" cy="107" r="3" fill="#7B61C9"/>
+<text x="387.5" y="111.5" font-size="12.5" fill="#57429F">语义映射匹配</text>
+<rect x="486.5" y="94" width="132.0" height="26" rx="13" fill="#F3F0FD" stroke="#CFC5F0"/>
+<circle cx="499.5" cy="107" r="3" fill="#7B61C9"/>
+<text x="508.5" y="111.5" font-size="12.5" fill="#57429F">规则 + 查重模型</text>
+<rect x="628.5" y="94" width="123.5" height="26" rx="13" fill="#F3F0FD" stroke="#CFC5F0"/>
+<circle cx="641.5" cy="107" r="3" fill="#7B61C9"/>
+<text x="650.5" y="111.5" font-size="12.5" fill="#57429F">自动生成与留痕</text>
+<text x="770.0" y="111.5" font-size="11.5" fill="#9AABB9">平台统一提供，业务侧不训练模型</text>
+<line x1="150" y1="140" x2="1130" y2="140" stroke="#E7EDF4" stroke-width="1.2"/>
+<rect x="88" y="188.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="204.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">01</text>
+<rect x="150" y="164" width="360" height="72" rx="10" fill="#EAF2FB" stroke="#B9D2EC"/>
+<rect x="151" y="174" width="4" height="52" rx="2" fill="#4A90D9"/>
+<text x="172" y="194" font-size="15" font-weight="700" fill="#1F3A5F">智能建单登记</text>
+<text x="172" y="216" font-size="12" fill="#5C7590">邮件 / 附件 / 台账自动解析建单 · 模型无审批权</text>
+<rect x="432.0" y="177.0" width="60.0" height="20" rx="10" fill="#DCEAF9" stroke="#B9D2EC" stroke-width="0.8"/>
+<text x="462.0" y="191.0" font-size="11" fill="#1F5C99" text-anchor="middle" font-weight="600">系统自动</text>
+<line x1="514" y1="200.0" x2="618" y2="200.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="236" x2="330" y2="247" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,246 335,246 330,256" fill="#8CA3BA"/>
+<rect x="88" y="302.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="318.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">02</text>
+<polygon points="115,314 330,256 545,314 330,372" fill="#EAF2FB" stroke="#4A90D9" stroke-width="1.2" opacity="0.96"/>
+<rect x="221.0" y="290.0" width="80.0" height="20" rx="10" fill="#DCEAF9" stroke="#B9D2EC" stroke-width="0.8"/>
+<text x="261.0" y="304.0" font-size="11" fill="#1F5C99" text-anchor="middle" font-weight="600">系统自动</text>
+<text x="313.0" y="313" font-size="14" font-weight="700" fill="#1F3A5F">是否在客户截止前？</text>
+<text x="330" y="335" font-size="11.5" fill="#5C7590" text-anchor="middle">系统按客户日历自动判定</text>
+<text x="342" y="374" font-size="11.5" fill="#5C7590">是</text>
+<text x="556" y="300" font-size="11.5" fill="#5C7590">否</text>
+<line x1="545" y1="314" x2="611" y2="314" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="610,309 610,319 620,314" fill="#8CA3BA"/>
+<line x1="330" y1="372" x2="330" y2="383" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,382 335,382 330,392" fill="#8CA3BA"/>
+<rect x="88" y="416.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="432.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">03</text>
+<rect x="150" y="392" width="360" height="72" rx="10" fill="#F3F0FD" stroke="#CFC5F0"/>
+<rect x="151" y="402" width="4" height="52" rx="2" fill="#7B61C9"/>
+<text x="172" y="422" font-size="15" font-weight="700" fill="#1F3A5F">凭证与合同取证</text>
+<text x="172" y="444" font-size="12" fill="#5C7590">多模态抽取 4 个关键字段 · 三源交叉校验</text>
+<rect x="435.5" y="405.0" width="56.5" height="20" rx="10" fill="#E8E3FA" stroke="#C9BEF0" stroke-width="0.8"/>
+<text x="463.8" y="419.0" font-size="11" fill="#57429F" text-anchor="middle" font-weight="600">AI 辅助</text>
+<line x1="514" y1="428.0" x2="618" y2="428.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="464" x2="330" y2="475" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,474 335,474 330,484" fill="#8CA3BA"/>
+<rect x="88" y="508.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="524.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">04</text>
+<rect x="150" y="484" width="360" height="72" rx="10" fill="#F3F0FD" stroke="#CFC5F0"/>
+<rect x="151" y="494" width="4" height="52" rx="2" fill="#7B61C9"/>
+<text x="172" y="514" font-size="15" font-weight="700" fill="#1F3A5F">服务项智能映射</text>
+<text x="172" y="536" font-size="12" fill="#5C7590">语义匹配合同服务项 · 低置信转人工</text>
+<rect x="435.5" y="497.0" width="56.5" height="20" rx="10" fill="#E8E3FA" stroke="#C9BEF0" stroke-width="0.8"/>
+<text x="463.8" y="511.0" font-size="11" fill="#57429F" text-anchor="middle" font-weight="600">AI 辅助</text>
+<line x1="514" y1="520.0" x2="618" y2="520.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="556" x2="330" y2="567" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,566 335,566 330,576" fill="#8CA3BA"/>
+<rect x="88" y="600.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="616.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">05</text>
+<rect x="150" y="576" width="360" height="72" rx="10" fill="#EAF2FB" stroke="#B9D2EC"/>
+<rect x="151" y="586" width="4" height="52" rx="2" fill="#4A90D9"/>
+<text x="172" y="606" font-size="15" font-weight="700" fill="#1F3A5F">交接登记与快照</text>
+<text x="172" y="628" font-size="12" fill="#5C7590">版本号 · 未结项挂账 · 接收人电子签</text>
+<rect x="432.0" y="589.0" width="60.0" height="20" rx="10" fill="#DCEAF9" stroke="#B9D2EC" stroke-width="0.8"/>
+<text x="462.0" y="603.0" font-size="11" fill="#1F5C99" text-anchor="middle" font-weight="600">系统自动</text>
+<line x1="330" y1="648" x2="330" y2="659" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,658 335,658 330,668" fill="#8CA3BA"/>
+<rect x="88" y="692.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="708.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">06</text>
+<rect x="150" y="668" width="360" height="72" rx="10" fill="#F3F0FD" stroke="#CFC5F0"/>
+<rect x="151" y="678" width="4" height="52" rx="2" fill="#7B61C9"/>
+<text x="172" y="698" font-size="15" font-weight="700" fill="#1F3A5F">机器预核对 + 人工复核差异</text>
+<text x="172" y="720" font-size="12" fill="#5C7590">机器全字段预核 · 人工只看差异项</text>
+<rect x="435.5" y="681.0" width="56.5" height="20" rx="10" fill="#E8E3FA" stroke="#C9BEF0" stroke-width="0.8"/>
+<text x="463.8" y="695.0" font-size="11" fill="#57429F" text-anchor="middle" font-weight="600">AI 辅助</text>
+<line x1="514" y1="704.0" x2="618" y2="704.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="740" x2="330" y2="751" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,750 335,750 330,760" fill="#8CA3BA"/>
+<rect x="88" y="784.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="800.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">07</text>
+<rect x="150" y="760" width="360" height="72" rx="10" fill="#EAF2FB" stroke="#B9D2EC"/>
+<rect x="151" y="770" width="4" height="52" rx="2" fill="#4A90D9"/>
+<text x="172" y="790" font-size="15" font-weight="700" fill="#1F3A5F">质量检查与智能查重</text>
+<text x="172" y="812" font-size="12" fill="#5C7590">规则引擎 + 历史查重 · 只提示不删除</text>
+<rect x="432.0" y="773.0" width="60.0" height="20" rx="10" fill="#DCEAF9" stroke="#B9D2EC" stroke-width="0.8"/>
+<text x="462.0" y="787.0" font-size="11" fill="#1F5C99" text-anchor="middle" font-weight="600">系统自动</text>
+<line x1="330" y1="832" x2="330" y2="843" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,842 335,842 330,852" fill="#8CA3BA"/>
+<rect x="88" y="898.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="914.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">08</text>
+<polygon points="115,910 330,852 545,910 330,968" fill="#EAF8EF" stroke="#2E9E63" stroke-width="1.2" opacity="0.96"/>
+<rect x="235.0" y="886.0" width="80.0" height="20" rx="10" fill="#DCF3E3" stroke="#A7D8B6" stroke-width="0.8"/>
+<text x="275.0" y="900.0" font-size="11" fill="#1D7A3F" text-anchor="middle" font-weight="600">人裁定</text>
+<text x="327.0" y="909" font-size="14" font-weight="700" fill="#1F3A5F">疑点可否解释？</text>
+<text x="330" y="931" font-size="11.5" fill="#5C7590" text-anchor="middle">模型给置信度与依据链</text>
+<text x="556" y="896" font-size="11.5" fill="#5C7590">否</text>
+<text x="342" y="970" font-size="11.5" fill="#5C7590">是</text>
+<line x1="545" y1="910" x2="611" y2="910" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="610,905 610,915 620,910" fill="#8CA3BA"/>
+<line x1="330" y1="968" x2="330" y2="979" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,978 335,978 330,988" fill="#8CA3BA"/>
+<rect x="88" y="1034.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1050.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">09</text>
+<polygon points="115,1046 330,988 545,1046 330,1104" fill="#EAF2FB" stroke="#4A90D9" stroke-width="1.2" opacity="0.96"/>
+<rect x="216.2" y="1022.0" width="80.0" height="20" rx="10" fill="#DCEAF9" stroke="#B9D2EC" stroke-width="0.8"/>
+<text x="256.2" y="1036.0" font-size="11" fill="#1F5C99" text-anchor="middle" font-weight="600">系统自动</text>
+<text x="308.2" y="1045" font-size="14" font-weight="700" fill="#1F3A5F">版本 / 字段可确认？</text>
+<text x="330" y="1067" font-size="11.5" fill="#5C7590" text-anchor="middle">有效期 + 确认状态自动判定</text>
+<text x="556" y="1032" font-size="11.5" fill="#5C7590">否</text>
+<text x="342" y="1106" font-size="11.5" fill="#5C7590">是</text>
+<line x1="545" y1="1046" x2="611" y2="1046" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="610,1041 610,1051 620,1046" fill="#8CA3BA"/>
+<line x1="330" y1="1104" x2="330" y2="1115" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,1114 335,1114 330,1124" fill="#8CA3BA"/>
+<rect x="88" y="1148.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1164.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">10</text>
+<rect x="150" y="1124" width="360" height="72" rx="10" fill="#DFF2E7" stroke="#93CDA9"/>
+<rect x="151" y="1134" width="4" height="52" rx="2" fill="#1D7A3F"/>
+<text x="172" y="1154" font-size="15" font-weight="700" fill="#1F3A5F">正式确认（电子签）</text>
+<text x="172" y="1176" font-size="12" fill="#5C7590">授权负责人签字 · 系统校验但不代签</text>
+<rect x="432.0" y="1137.0" width="60.0" height="20" rx="10" fill="#CBEBD6" stroke="#93CDA9" stroke-width="0.8"/>
+<text x="462.0" y="1151.0" font-size="11" fill="#14663A" text-anchor="middle" font-weight="600">人工闸口</text>
+<line x1="514" y1="1160.0" x2="618" y2="1160.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="1196" x2="330" y2="1207" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,1206 335,1206 330,1216" fill="#8CA3BA"/>
+<rect x="88" y="1240.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1256.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">11</text>
+<rect x="150" y="1216" width="360" height="72" rx="10" fill="#F3F0FD" stroke="#CFC5F0"/>
+<rect x="151" y="1226" width="4" height="52" rx="2" fill="#7B61C9"/>
+<text x="172" y="1246" font-size="15" font-weight="700" fill="#1F3A5F">客户口径确认</text>
+<text x="172" y="1268" font-size="12" fill="#5C7590">自动生成差异解释草稿 · 人工定稿</text>
+<rect x="435.5" y="1229.0" width="56.5" height="20" rx="10" fill="#E8E3FA" stroke="#C9BEF0" stroke-width="0.8"/>
+<text x="463.8" y="1243.0" font-size="11" fill="#57429F" text-anchor="middle" font-weight="600">AI 辅助</text>
+<line x1="330" y1="1288" x2="330" y2="1299" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,1298 335,1298 330,1308" fill="#8CA3BA"/>
+<rect x="88" y="1332.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1348.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">12</text>
+<rect x="150" y="1308" width="360" height="72" rx="10" fill="#DFF2E7" stroke="#93CDA9"/>
+<rect x="151" y="1318" width="4" height="52" rx="2" fill="#1D7A3F"/>
+<text x="172" y="1338" font-size="15" font-weight="700" fill="#1F3A5F">审批放行</text>
+<text x="172" y="1360" font-size="12" fill="#5C7590">规则前置校验 · 仅异常 / 跨企业上会</text>
+<rect x="432.0" y="1321.0" width="60.0" height="20" rx="10" fill="#CBEBD6" stroke="#93CDA9" stroke-width="0.8"/>
+<text x="462.0" y="1335.0" font-size="11" fill="#14663A" text-anchor="middle" font-weight="600">人工闸口</text>
+<line x1="514" y1="1344.0" x2="618" y2="1344.0" stroke="#C3D0DE" stroke-width="1.2" stroke-dasharray="2 5"/>
+<line x1="330" y1="1380" x2="330" y2="1391" stroke="#8CA3BA" stroke-width="1.6"/>
+<polygon points="325,1390 335,1390 330,1400" fill="#8CA3BA"/>
+<rect x="88" y="1424.0" width="40" height="24" rx="6" fill="#FFFFFF" stroke="#CBD9E8"/>
+<text x="108" y="1440.5" font-size="13" fill="#7C93AB" text-anchor="middle" font-weight="700">13</text>
+<rect x="150" y="1400" width="360" height="72" rx="10" fill="#EAF2FB" stroke="#B9D2EC"/>
+<rect x="151" y="1410" width="4" height="52" rx="2" fill="#4A90D9"/>
+<text x="172" y="1430" font-size="15" font-weight="700" fill="#1F3A5F">归档与审计</text>
+<text x="172" y="1452" font-size="12" fill="#5C7590">全链路留痕 · 一键追溯谁改了什么</text>
+<rect x="432.0" y="1413.0" width="60.0" height="20" rx="10" fill="#DCEAF9" stroke="#B9D2EC" stroke-width="0.8"/>
+<text x="462.0" y="1427.0" font-size="11" fill="#1F5C99" text-anchor="middle" font-weight="600">系统自动</text>
+<path d="M620,946 L585,946 L585,1102 L470,1102 L470,1115" fill="none" stroke="#8CA3BA" stroke-width="1.4" stroke-dasharray="5 5"/>
+<polygon points="465,1115 475,1115 470,1124" fill="#8CA3BA"/>
+<rect x="620" y="164" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="164" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="190" font-size="13" font-weight="700" fill="#33506E">智能建单</text>
+<text x="638" y="212" font-size="12" fill="#5C7590">邮件 / 群消息 / 附件自动解析，字段预填并留原文件</text>
+<text x="638" y="234" font-size="12" fill="#5C7590">只填登记字段，不产出任何结算结论</text>
+<rect x="620" y="256" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="256" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="282" font-size="13" font-weight="700" fill="#33506E">自动挂起</text>
+<text x="638" y="304" font-size="12" fill="#5C7590">超截止自动挂起 + 生成缺项清单与责任人</text>
+<text x="638" y="326" font-size="12" fill="#5C7590">补齐后进下一批次，不倒签发生时间</text>
+<rect x="620" y="392" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="392" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="418" font-size="13" font-weight="700" fill="#33506E">多模态抽取</text>
+<text x="638" y="440" font-size="12" fill="#5C7590">OCR + LLM 从发票 / 合同 / 台账抽 4 个关键字段</text>
+<text x="638" y="462" font-size="12" fill="#5C7590">三源交叉校验，冲突自动标红并附原文页</text>
+<rect x="620" y="484" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="484" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="510" font-size="13" font-weight="700" fill="#33506E">语义映射</text>
+<text x="638" y="532" font-size="12" fill="#5C7590">费用名称 ↔ 合同服务项向量匹配 + 同义词库</text>
+<text x="638" y="554" font-size="12" fill="#5C7590">置信度低于阈值转人工，映射记录可回溯</text>
+<rect x="620" y="576" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="576" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="602" font-size="13" font-weight="700" fill="#33506E">人机边界（设计原则）</text>
+<text x="638" y="624" font-size="12" fill="#5C7590">机器做：找得到 · 算得准 · 留得住 · 可复核</text>
+<text x="638" y="646" font-size="12" fill="#5C7590">人来做：判得清 · 签得下 · 担得起 · 可追溯</text>
+<rect x="620" y="668" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="668" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="694" font-size="13" font-weight="700" fill="#33506E">机器预核对</text>
+<text x="638" y="716" font-size="12" fill="#5C7590">全字段自动比对，只把差异项推给人工复核</text>
+<text x="638" y="738" font-size="12" fill="#5C7590">异常对账 55 分钟 / 份 → 约 8 分钟 / 份（目标）</text>
+<rect x="620" y="852" width="510" height="114" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="852" width="4" height="114" rx="2" fill="#C6D6E8"/>
+<text x="638" y="878" font-size="13" font-weight="700" fill="#33506E">查重模型</text>
+<text x="638" y="900" font-size="12" fill="#5C7590">币种换算 + 历史账单比对，输出重复概率与依据</text>
+<text x="638" y="922" font-size="12" fill="#5C7590">只提示不删除，保留原行与原始版本</text>
+<text x="638" y="944" font-size="12" fill="#5C7590">人工裁定责任后留痕，返回「正式确认」继续</text>
+<rect x="620" y="988" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="988" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="1014" font-size="13" font-weight="700" fill="#33506E">自动判定</text>
+<text x="638" y="1036" font-size="12" fill="#5C7590">版本有效期 + 确认状态双条件自动校验</text>
+<text x="638" y="1058" font-size="12" fill="#5C7590">不可确认即自动派单，进人工处理队列</text>
+<rect x="620" y="1124" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="1124" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="1150" font-size="13" font-weight="700" fill="#33506E">电子签</text>
+<text x="638" y="1172" font-size="12" fill="#5C7590">权限、完整性、金额阈值自动校验后送签</text>
+<text x="638" y="1194" font-size="12" fill="#5C7590">授权名单待业务负责人确认，系统不代签</text>
+<rect x="620" y="1308" width="510" height="92" rx="9" fill="#FFFFFF" stroke="#D5DFEA"/>
+<rect x="620" y="1308" width="4" height="92" rx="2" fill="#C6D6E8"/>
+<text x="638" y="1334" font-size="13" font-weight="700" fill="#33506E">审批规则前置</text>
+<text x="638" y="1356" font-size="12" fill="#5C7590">规则先跑，只有异常 / 跨企业访问才上会</text>
+<text x="638" y="1378" font-size="12" fill="#5C7590">审批是否单设节点尚未核实，按假设设计</text>
+<line x1="150" y1="1504" x2="1130" y2="1504" stroke="#E7EDF4" stroke-width="1.2"/>
+<rect x="150" y="1522" width="316" height="88" rx="10" fill="#FDF1F2" stroke="#F3C3C8"/>
+<text x="168" y="1544" font-size="11.5" fill="#7C93AB">访谈基线（As-Is）</text>
+<text x="168" y="1570" font-size="17" font-weight="700" fill="#B4232A">13 步全人工</text>
+<text x="168" y="1594" font-size="11.5" fill="#5C7590">10 处人工 · 异常对账 55 分钟/份</text>
+<rect x="492" y="1522" width="316" height="88" rx="10" fill="#EFF9F2" stroke="#B6E0C6"/>
+<text x="510" y="1544" font-size="11.5" fill="#7C93AB">数智化后（To-Be）</text>
+<text x="510" y="1570" font-size="17" font-weight="700" fill="#1D7A3F">13 步人机协同</text>
+<text x="510" y="1594" font-size="11.5" fill="#5C7590">人工仅 3 处 · 约 15 分钟/份（目标）</text>
+<rect x="834" y="1522" width="316" height="88" rx="10" fill="#F5F2FE" stroke="#CFC5F0"/>
+<text x="852" y="1544" font-size="11.5" fill="#7C93AB">变化（演练假设）</text>
+<text x="852" y="1570" font-size="17" font-weight="700" fill="#57429F">人工核对 ↓70%</text>
+<text x="852" y="1594" font-size="11.5" fill="#5C7590">留痕 100% · 结论仍由授权人签字</text>
+<text x="150" y="1648" font-size="11.5" fill="#B4232A">三条红线：模型不决策 · 不自动付款 · 不修改已确认账单 · 疑似重复项不自动删除</text>
+<text x="150" y="1670" font-size="11" fill="#93A6B8">依据 discovery-report.md 访谈整理；效率数字为演练目标值，需实测校准，不代表企业真实经营数据</text>
+</g></svg>
