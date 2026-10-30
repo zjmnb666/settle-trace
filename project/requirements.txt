@@ -1,11 +1,17 @@
-# SettleTrace 对话入口 · 依赖
-# Python 3.10+（实测 3.13）
+# SettleTrace chat entry - dependencies
+# Python 3.10+ (tested on 3.12 / 3.13)
+#
+# NOTE: this file is ASCII-only on purpose.
+# On a Chinese Windows locale, pip reads a requirements file without a BOM
+# using the GBK codec, so any non-ASCII character raises:
+#   UnicodeDecodeError: 'gbk' codec can't decode byte ...
+# Keep comments in English here; Chinese notes live in README.md.
 
-fastapi==0.115.6          # Web 框架
-uvicorn[standard]==0.34.0  # ASGI 服务器
-pydantic==2.10.4          # 请求/响应模型（fastapi 已依赖，显式钉版本便于复现）
-asyncpg==0.30.0           # PostgreSQL 异步驱动（直接写 SQL，不引 ORM）
-httpx==0.28.1             # LLM 流式调用
-numpy==2.2.1              # 向量运算
-rank-bm25==0.2.2          # 字面检索
-jieba==0.42.1             # 中文分词
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.2
+asyncpg==0.32.0
+httpx==0.28.1
+numpy==2.5.4
+rank-bm25==0.2.2
+jieba==0.42.1

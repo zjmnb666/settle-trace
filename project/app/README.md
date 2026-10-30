@@ -60,6 +60,16 @@ pip install -r requirements.txt
 python -m app.check_db
 ```
 
+> **Windows 中文环境注意**：`requirements.txt` 刻意保持**全 ASCII**（注释也用英文）。原因：pip 读取无 BOM 的 requirements 文件时使用系统 locale 编码（GBK），文件里只要有一个中文字符就会报
+> `UnicodeDecodeError: 'gbk' codec can't decode byte ...`。中文说明放在本文档里，不放依赖文件。
+>
+> 建议用虚拟环境，避免写系统 Python 的 site-packages（会触发 `Defaulting to user installation` 警告）：
+> ```powershell
+> python -m venv .venv
+> .venv\Scripts\activate
+> pip install -r requirements.txt
+> ```
+
 它会按 8 项逐条检查并给出下一步动作：连接串（密码打码）→ 能否连上 → 服务端版本 → pgvector 扩展 → 4 张表 → 向量维度是否匹配 → 切片数据量 → 抽样一条。**任何一步失败都直接告诉你该执行什么命令**，比在 uvicorn 里看堆栈快得多。
 
 ### 第三步：灌语料并启动
