@@ -203,11 +203,12 @@ python -m app.agent_migrate      # 建 10 张表（幂等）
 python -m app.agent_seed         # 灌虚构演示单据 JS-2026-0318
 ```
 
-**8 个工具 + 1 个固定作业顺序**，详见 `架构/Agent工具设计-v1.md`：
+**10 个工具（9 个原子 + 1 个复合技能）+ 固定作业顺序**，详见 `架构/Agent工具设计-v1.md`：
 
 | 层 | 工具 |
 |---|---|
 | L0 读 | `search_corpus` · `get_settlement` · `list_fee_lines` · `get_evidence`（批量） |
+| 复合 | `scan_settlement` —— 一轮跑完 L0+L1 全部步骤，为满足 5 轮上限而存在 |
 | L1 分析 | `map_service_item`（批量）· `check_duplicates` |
 | L2 写 | `record_finding` · `build_review_draft` · `escalate_to_human` |
 
