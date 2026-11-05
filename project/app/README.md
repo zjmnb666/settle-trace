@@ -214,7 +214,9 @@ python -m app.agent_seed         # 灌虚构演示单据 JS-2026-0318
 **三条不能违反的约定**
 
 1. **顺序约束在代码里**：`build_review_draft` 前必须完成全部行的映射 + 查重，否则 `E5003` 并列出 missing。
-2. **写操作必须带来源定位**：`record_finding` 的 `evidence_refs` 为空直接拒绝。
+2. **写操作必须带来源定位**：`record_finding` 的 `evidence_refs` 可省略，由系统按
+   「模型中给 → 该行凭证 → 结算单文件」三级回退自动补齐；连单据都没读过仍然拒绝（`E5003`）。
+   返回体里的 `evidence_refs_source` 标明定位来源，审计时能区分是模型给的还是系统补的。
 3. **没有付款/开票/确认/审批/删重复项的工具**——不是拦，是根本不存在。
 
 **模型要求**：必须支持 Function Calling。`LLM_PROVIDER=mock` 时接口返回 `E5004`，

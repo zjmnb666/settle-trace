@@ -36,6 +36,11 @@ class Ledger:
     line_names: dict[str, str] = field(default_factory=dict)
 
     evidence_seen: set[str] = field(default_factory=set)   # 取过证据的行
+    # 每行的凭证定位：{fee_line_id: [{voucher, page, field}, ...]}
+    # 由 scan_settlement / get_evidence 填充，record_finding 不再要求模型手填 refs
+    evidence_refs: dict[str, list] = field(default_factory=dict)
+    # 结算单文件（整单级发现用它做来源定位，比如版本冲突）
+    settlement_file: str | None = None
     mapped: dict[str, dict] = field(default_factory=dict)   # 行 id -> 映射结论
     duplicates_checked: bool = False
     findings: int = 0

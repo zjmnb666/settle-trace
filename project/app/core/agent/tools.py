@@ -99,22 +99,24 @@ TOOL_SPECS: list[dict] = [
 
     # ---------------- L2 写 ----------------
     _fn("record_finding",
-        "登记一条发现/疑点。必须带证据引用，否则拒绝写入。一经写入不可修改，只可标记为已处理。",
-        {"fee_line_id": {"type": "string", "description": "相关费用行；整单级问题留空"},
+        "登记一条发现/疑点。证据引用可不填——系统会用 scan_settlement 拿到的定位自动带上；"
+        "只有没做过扫描、或要引用别的材料时才需要手填。一经写入不可修改，只可标记为已处理。",
+        {"fee_line_id": {"type": "string", "description": "相关费用行 id；整单级问题留空"},
          "kind": {"type": "string",
                   "enum": ["duplicate", "unmapped", "missing_evidence",
                            "version_conflict", "note"]},
          "severity": {"type": "string", "enum": ["low", "medium", "high"]},
          "note": {"type": "string", "description": "问题描述，写清现象与判断依据"},
          "evidence_refs": {
-             "type": "array", "minItems": 1,
-             "description": "证据引用，至少一条",
+             "type": "array",
+             "description": "可选。不填则由系统按该行的凭证定位自动补齐；"
+                            "整单级问题用结算单文件定位。",
              "items": {"type": "object", "properties": {
                  "voucher": {"type": "string"},
                  "page": {"type": "integer"},
                  "field": {"type": "string"}},
                  "required": ["voucher", "page"]}}},
-        ["kind", "note", "evidence_refs"]),
+        ["kind", "note"]),
     _fn("build_review_draft",
         "生成核对草稿。需要所有费用行都完成映射、已查重、且每行都有证据；否则返回 E5003 并列出缺失项。",
         {"settlement_id": {"type": "string"}},
@@ -430,6 +432,10 @@ async def _scan_settlement(conn: asyncpg.Connection, ledger: Ledger, args: dict,
         refs = [{"voucher": it["file_name"], "page": it["page_no"],
                  "field": it["field_name"]} for it in (item.get("items") or [])][:3]
         ev_refs[item["fee_line_id"]] = refs
+    ledger.evidence_refs.update(ev_refs)
+    # 整单级发现（如版本冲突）需要单据文件作为定位，这里顺手记下
+    cur = [v for v in head["versions"] if v["is_current"]]
+    ledger.settlement_file = (cur[0].get("source_file") if cur else None) or head["settlement"]["settlement_no"]
     for lid, n in ev_count.items():
         if n:
             ledger.evidence_seen.add(lid)
@@ -510,18 +516,53 @@ def other_line_no(pair: dict, lid: str) -> int:
     return int(pair["lines"][0]["line_no"])
 
 
-async def _record_finding(conn: asyncpg.Connection, ledger: Ledger, args: dict) -> dict:
-    refs = args.get("evidence_refs") or []
-    if not refs:
-        # 硬约束 6：没有来源定位的结论不许落库。这条不靠提示词，靠这里拒绝。
-        raise AppError("E5003", "evidence_refs 不能为空：没有来源定位的发现不能登记")
-    for r in refs:
-        if not r.get("voucher") or not r.get("page"):
-            raise AppError("E5002", "每条 evidence_ref 必须包含 voucher 与 page")
+def _resolve_refs(ledger: Ledger, fee_line_id: str | None,
+                  kind: str, given: list | None) -> tuple[list, str]:
+    """决定这条发现用哪些来源定位，返回 (refs, 来源说明)。
 
+    三级回退：
+        1. 模型给了就用模型的（要引用扫描之外的材料时用得上）
+        2. 该行有凭证 → 用凭证定位（这是最正常的路径）
+        3. 该行没有凭证（missing_evidence 的典型情形）→ 用结算单文件 + 行号定位，
+           说明"这一行在结算单里存在，但找不到任何凭证"——事实本身有来源。
+    都没有才拒绝：连单据都没读过，不该登记任何发现。
+    """
+    if given:
+        return given, "model"
+    refs = ledger.evidence_refs.get(fee_line_id or "") or []
+    if refs:
+        return refs[:3], "auto_evidence"
+    if ledger.settlement_file and ledger.settlement_id:
+        line_name = ledger.line_names.get(fee_line_id or "", "")
+        field = f"{kind}: {line_name}" if line_name else kind
+        return ([{"voucher": ledger.settlement_file, "page": 1, "field": field}],
+                "auto_settlement")
+    return [], "none"
+
+
+async def _record_finding(conn: asyncpg.Connection, ledger: Ledger, args: dict) -> dict:
     fee_line_id = args.get("fee_line_id") or None
     if fee_line_id and fee_line_id not in ledger.line_ids:
         raise AppError("E5002", f"fee_line_id={fee_line_id} 不属于当前结算单或尚未读取")
+
+    kind = args.get("kind") or "note"
+    # 先校验必填，再谈定位：模型偶尔会发一个空参数调用（args={}），
+    # 直接走到 args["note"] 会抛 KeyError，被外层兜成 E5001"工具执行异常"，
+    # 模型看不出自己错在哪。给出明确的 E5002 它才知道要补什么。
+    note = (args.get("note") or "").strip()
+    if not note:
+        raise AppError("E5002", "note 不能为空：请写清现象与判断依据")
+
+    refs, ref_source = _resolve_refs(ledger, fee_line_id, kind, args.get("evidence_refs"))
+    if not refs:
+        # 硬约束 6 仍然守在这里：连来源定位都拿不到，就不许落库。
+        # 只是"拿不到"的门槛从"模型没填"变成了"系统也没有"。
+        raise AppError("E5003",
+                       "无法确定来源定位：请先调用 scan_settlement，"
+                       "或显式传入 evidence_refs（voucher + page）")
+    for r in refs:
+        if not r.get("voucher") or not r.get("page"):
+            raise AppError("E5002", "每条 evidence_ref 必须包含 voucher 与 page")
 
     fid = str(uuid.uuid4())
     await conn.execute(
@@ -529,11 +570,12 @@ async def _record_finding(conn: asyncpg.Connection, ledger: Ledger, args: dict) 
                                 evidence_refs, created_by_tool)
            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)""",
         fid, ledger.settlement_id, fee_line_id,
-        args.get("kind") or "note", args.get("severity") or "medium",
-        args["note"], json.dumps(refs, ensure_ascii=False), "record_finding",
+        kind, args.get("severity") or "medium",
+        note, json.dumps(refs, ensure_ascii=False), "record_finding",
     )
     ledger.findings += 1
-    return {"finding_id": fid, "kind": args.get("kind"), "recorded": True}
+    return {"finding_id": fid, "kind": kind, "recorded": True,
+            "evidence_refs_source": ref_source, "refs_used": refs[:2]}
 
 
 async def _build_review_draft(conn: asyncpg.Connection, ledger: Ledger, args: dict) -> dict:
@@ -760,6 +802,9 @@ async def _dispatch(name: str, args: dict, ledger: Ledger,
                 for lid in ids:
                     data = await _get_evidence(conn, lid)
                     ledger.evidence_seen.add(lid)
+                    ledger.evidence_refs[lid] = [
+                        {"voucher": it["file_name"], "page": it["page_no"],
+                         "field": it["field_name"]} for it in data["items"]][:3]
                     items.append({"fee_line_id": lid, **data})
                 return {"ok": True, "rows": len(ids),
                         "without_evidence": [i["fee_line_id"] for i in items if i["count"] == 0],
