@@ -3,7 +3,7 @@
 > 目标：把"固定流程问答"升级为**会自主决策的核对智能体**——但只在"怎么取证、怎么归类疑点"上自主，
 > 不在"能不能出结论、能不能确认"上自主。
 >
-> 状态：已实现并通过真实模型端到端验证（2026-11-05）。代码位置 `project/app/core/agent/`。
+> 状态：已实现并通过真实模型端到端验证（2026-11-05）。代码位置 `src/app/core/agent/`。
 
 ---
 
@@ -105,7 +105,7 @@ loaded ──list_fee_lines──▶ evidenced ──map + dup──▶ compared
 
 ## 五、系统提示词
 
-见 `project/app/core/agent/prompt.py`。要点：
+见 `src/app/core/agent/prompt.py`。要点：
 
 1. 明确"你是取证与整理者，不是决策者"
 2. 写入类工具前必须取得来源定位（文件 + 页码 + 字段）

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile all modules
+        run: python -m compileall -q src/app
+
+      # 只验证"能否导入"，不连数据库：main 里的连接发生在 lifespan，导入阶段不会触发。
+      # 这样 CI 不需要一个 PG 实例，也不会因为网络问题误报。
+      - name: Import application
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "src")
+          from app.main import app
+          from app.core.agent import TOOL_NAMES
+          assert len(TOOL_NAMES) == 10, TOOL_NAMES
+          print("import ok, tools:", len(TOOL_NAMES))
+          PY
+
+      - name: Validate eval cases
+        run: |
+          python - <<'PY'
+          import json, collections
+          cases = json.load(open("tests/eval/cases.json", encoding="utf-8"))
+          assert len(cases) == 30, len(cases)
+          c = collections.Counter(x["category"] for x in cases)
+          assert c["policy"] == 10 and c["tool"] == 10
+          assert c["violation"] == 5 and c["multiturn"] == 5
+          ids = [x["id"] for x in cases]
+          assert len(ids) == len(set(ids)), "duplicate case id"
+          print("cases ok:", dict(c))
+          PY
+
+      - name: Check secrets are not committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "::error::.env must never be committed"
+            exit 1
+          fi
+          echo "no .env tracked"

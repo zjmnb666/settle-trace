@@ -1,13 +1,46 @@
-# project/ · 运行说明
+# 安装与运行
 
-本目录有两个入口，按阶段递进：
+项目有两个入口：
 
 | 入口 | 内容 | 依赖 |
 |---|---|---|
-| `rag_cli.py` | **阶段 1**：命令行文档检索原型（FAISS + BM25 + RRF） | 无需数据库，纯本地 |
-| `app/` | **阶段 2**：Web 对话入口（FastAPI + SSE + 单页前端） | 需 PostgreSQL 16 + pgvector（Docker 一键起） |
+| `python run.py` | **主应用**：Web 对话、整单核对、管理后台（FastAPI + SSE + 智能体） | PostgreSQL 16 + pgvector |
+| `examples/rag_cli.py` | **阶段 1 原型**：命令行文档检索（FAISS + BM25 + RRF） | 无需数据库，纯本地 |
 
-阶段 2 的完整说明见 [`app/README.md`](app/README.md)，下面只讲阶段 1。
+主应用的完整说明见 [`src/app/README.md`](../src/app/README.md)，
+本项目结构见 [README](../README.md)。下面先讲主应用，再讲阶段 1 原型。
+
+---
+
+## 主应用：三步启动
+
+```bash
+# ① 环境
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# ② 配置（只有 DATABASE_URL 必须改）
+cp .env.example .env               # Windows: copy .env.example .env
+
+# ③ 建表 + 启动
+python run.py check_db             # 8 步自检
+python run.py migrate              # 后台表 + 提示词 v1
+python run.py migrate-agent        # 智能体域 + 编排补丁
+python run.py seed                 # 演示单据
+python run.py                      # http://127.0.0.1:8000
+```
+
+数据库两种来源，任选：
+
+| 方式 | 命令 / 做法 | 注意 |
+|---|---|---|
+| 本地 Docker | `docker compose up -d` | 首次会自动执行 `src/sql/schema.sql` |
+| 云 PG（Supabase/Neon） | 把建表 SQL 粘进控制台执行 | 连接串必须带 `?sslmode=require` |
+
+云 PG 有三个坑：用 Session pooler（5432）而不是 Transaction pooler（6543）；
+用户名是 `postgres.<项目ref>` 而不是 `postgres`；Direct connection 只支持 IPv6。
+详细说明与常见报错见 [`src/app/README.md`](../src/app/README.md)。
 
 ---
 
@@ -16,7 +49,7 @@
 把 Markdown 文档切片、向量化、建索引，命令行提问后走 BM25 + 向量混合检索，
 取 Top3 拼进提示词交给 LLM 回答。**纯命令行，无 Web 服务。**
 
-脚本是 `rag_cli.py`，运行产物（索引）落在 `index/`，该目录不入库。
+脚本是 `examples/rag_cli.py`，运行产物（索引）落在 `examples/index/`，该目录不入库。
 
 ---
 
@@ -55,13 +88,13 @@ pip install faiss-cpu rank-bm25 jieba numpy
 
 ```bash
 # ① 建索引（约 1 秒）
-python rag_cli.py build --corpus ../discovery-report.md
+python examples/rag_cli.py build --corpus docs/requirements/discovery-report.md
 
 # ② 单次提问
-python rag_cli.py ask --question "跨币种重复费用应该怎么处理？"
+python examples/rag_cli.py ask --question "跨币种重复费用应该怎么处理？"
 
 # ③ 连续提问（索引常驻内存，适合边试边调）
-python rag_cli.py chat
+python examples/rag_cli.py chat
 ```
 
 ① 的输出应该长这样：
@@ -77,7 +110,7 @@ python rag_cli.py chat
 
 ```
 --- 召回材料（Top3）---
-[1] score=0.0328  discovery-report.md · … > 跨币种重复费用识别… · 第 1423-1817 字
+[1] score=0.0328  docs/requirements/discovery-report.md · … > 跨币种重复费用识别… · 第 1423-1817 字
 [2] score=0.0315  …
 ----------------------------------------
 【离线 mock 模式 · 非真实模型输出】…
@@ -103,7 +136,7 @@ LLM_MODEL=deepseek-chat \
 LLM_BASE_URL=https://api.deepseek.com/v1 \
 LLM_API_KEY=sk-你的key \
 EMB_PROVIDER=mock \
-python rag_cli.py ask --question "版本怎么判断最新？"
+python examples/rag_cli.py ask --question "版本怎么判断最新？"
 ```
 
 ### OpenAI
@@ -111,7 +144,7 @@ python rag_cli.py ask --question "版本怎么判断最新？"
 ```bash
 LLM_PROVIDER=openai LLM_MODEL=gpt-4o-mini LLM_API_KEY=sk-xxx \
 EMB_PROVIDER=openai EMB_MODEL=text-embedding-3-small \
-python rag_cli.py ask --question "..."
+python examples/rag_cli.py ask --question "..."
 ```
 
 ### 本地 Ollama（数据不出内网，适合甲方环境）
@@ -120,7 +153,7 @@ python rag_cli.py ask --question "..."
 LLM_PROVIDER=ollama LLM_MODEL=qwen2.5 \
 LLM_BASE_URL=http://localhost:11434/v1 \
 EMB_PROVIDER=ollama EMB_MODEL=bge-m3 \
-python rag_cli.py ask --question "..."
+python examples/rag_cli.py ask --question "..."
 ```
 
 ### Windows 下的环境变量写法（易错点）
@@ -132,14 +165,14 @@ Git Bash 的 `VAR=x cmd` 前缀写法**在 PowerShell / CMD 里不生效**，要
 $env:LLM_PROVIDER="deepseek"
 $env:LLM_MODEL="deepseek-chat"
 $env:LLM_API_KEY="sk-xxx"
-python rag_cli.py ask --question "..."
+python examples/rag_cli.py ask --question "..."
 ```
 
 ```cmd
 :: CMD
 set LLM_PROVIDER=deepseek
 set LLM_API_KEY=sk-xxx
-python rag_cli.py ask --question "..."
+python examples/rag_cli.py ask --question "..."
 ```
 
 ---

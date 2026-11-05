@@ -34,7 +34,7 @@ app/
 Supabase / Neon 免费额度都自带 pgvector。
 
 1. 建项目 → 在 SQL Editor 里整段执行 [`sql/schema.sql`](../sql/schema.sql)
-2. 复制连接串，写进 `project/.env`：
+2. 复制连接串，写进 `.env`：
 
 ```bash
 cp .env.example .env
@@ -57,7 +57,7 @@ Docker 需要 WSL2 后端；Windows 家庭版要开 hypervisor（`bcdedit /set h
 
 ```bash
 pip install -r requirements.txt
-python -m app.check_db
+python run.py check_db
 ```
 
 > **Windows 中文环境注意**：`requirements.txt` 刻意保持**全 ASCII**（注释也用英文）。原因：pip 读取无 BOM 的 requirements 文件时使用系统 locale 编码（GBK），文件里只要有一个中文字符就会报
@@ -75,8 +75,8 @@ python -m app.check_db
 ### 第三步：灌语料并启动
 
 ```bash
-python -m app.ingest --corpus ../discovery-report.md
-uvicorn app.main:app --reload --port 8000
+python run.py ingest --corpus ../docs/requirements/discovery-report.md
+python run.py
 # 浏览器打开 http://127.0.0.1:8000
 ```
 
@@ -126,7 +126,7 @@ ADMIN_INIT_PASSWORD=<你自己的密码>
 - 登录限流：同 IP 60 秒 5 次
 - 角色 → 能力映射见 `app/api/admin_deps.py` 的 `CAPABILITIES`；`is_admin` 为总开关
 
-**数据库**：先执行 `python -m app.admin_migrate`（建 4 张表 + 写提示词 v1 + 回填历史切片）。
+**数据库**：先执行 `python run.py migrate`（建 4 张表 + 写提示词 v1 + 回填历史切片）。
 
 ### 批次 2：语料与提示词（已实现）
 
@@ -148,7 +148,7 @@ ADMIN_INIT_PASSWORD=<你自己的密码>
 - 多实例：靠 TTL 10 秒最终一致，要秒级一致需加 Redis pub/sub（未做）
 - **四条红线不可删除**：保存时校验，缺任一条返回 `E4008` 并指出缺哪条
 
-**命令行与后台是同一套逻辑**：`python -m app.ingest` 内部调用 `doc_service.import_document`，
+**命令行与后台是同一套逻辑**：`python run.py ingest` 内部调用 `doc_service.import_document`，
 所以命令行灌进去的文档在后台列表里能看到，去重与留痕规则也一致。
 `--force` 覆盖同内容文档。
 
@@ -199,11 +199,11 @@ DELETE FROM admin_user WHERE username IN ('lin', 'wang', 'qin');
 **首次使用要建表 + 灌演示数据**：
 
 ```bash
-python -m app.agent_migrate      # 建 10 张表（幂等）
-python -m app.agent_seed         # 灌虚构演示单据 JS-2026-0318
+python run.py migrate-agent      # 建 10 张表（幂等）
+python run.py seed         # 灌虚构演示单据 JS-2026-0318
 ```
 
-**10 个工具（9 个原子 + 1 个复合技能）+ 固定作业顺序**，详见 `架构/Agent工具设计-v1.md`：
+**10 个工具（9 个原子 + 1 个复合技能）+ 固定作业顺序**，详见 `docs/agent-tools.md`：
 
 | 层 | 工具 |
 |---|---|
@@ -231,7 +231,7 @@ v2 版本未确认。
 
 ### 编排（阶段 5）：5 轮上限 + 待确认草稿
 
-**跑法**：先 `python -m app.agent_migrate`（会执行 `sql/agent_orchestration.sql` 补丁）。
+**跑法**：先 `python run.py migrate-agent`（会执行 `sql/agent_orchestration.sql` 补丁）。
 
 **轮次**：`AGENT_MAX_ROUNDS=5`。整单核对实测 4 轮完成
 （1 轮 `scan_settlement` + 2 轮登记问题 + 1 轮出草稿）。
@@ -276,7 +276,7 @@ python eval/run_eval.py --id M02 --verbose               # 看多轮过程
 | multiturn | 5 | 代词指代、省略主语的追问 |
 
 **判定两维**：工具（调没调、顺序对不对）与行为（说了什么、有没有编），都过才算 PASS。
-细节与设计取舍见 `eval/README.md`，完整报告见 `架构/评测报告-v1.md`。
+细节与设计取舍见 `eval/README.md`，完整报告见 `docs/evaluation.md`。
 
 **最近一次全量结果**：30/30。但模型输出有随机性，单次 100% 不等于稳定 100%——
 报告中如实记录了前三次 28/30、29/30 的失败项与成因。
@@ -300,7 +300,7 @@ python eval/run_eval.py --id M02 --verbose               # 看多轮过程
 | GET | `/api/sessions/{id}/messages` | 整段会话（含引用），刷新页面恢复用 |
 | GET | `/api/health` | 数据库 / 切片数 / BM25 / 模型配置 |
 
-命令行工具：`python -m app.check_db`（连接与建表自检）、`python -m app.ingest --corpus <文件>`（灌语料）。
+命令行工具：`python run.py check_db`（连接与建表自检）、`python run.py ingest --corpus <文件>`（灌语料）。
 
 SSE 事件顺序：`meta` → `status`(检索) → `status`(生成) → `delta`×N → `citation`×K → `done`，
 任何环节失败都会发 `error`（带 code / message / request_id）。
@@ -334,7 +334,7 @@ SSE 事件顺序：`meta` → `status`(检索) → `status`(生成) → `delta`�
 
 - 全部模块编译通过、`app.main` 可导入
 - 路由可达：`/` 返回页面 200，`/api/health` 返回结构化状态
-- `python -m app.check_db`：连接失败时输出打码连接串 + 四条排查提示，退出码 1
+- `python run.py check_db`：连接失败时输出打码连接串 + 四条排查提示，退出码 1
 - `.env` 加载：写 `EMB_DIM=1536` 后配置生效，删除后回落 1024；命令行环境变量优先于 `.env`
 - 参数校验：空问题→400/E1005、超长→413/E1003、非法角色→400/E1001
 - 数据库不可用时：`/api/health` 显示原因、`/api/chat` 在流内返回 `E3004`、`/api/sessions` 返回 503
@@ -355,10 +355,10 @@ SSE 事件顺序：`meta` → `status`(检索) → `status`(生成) → `delta`�
 `app/rollback.py` 负责按层级执行。
 
 ```bash
-python -m app.rollback --list                 # 看层级，不连库
-python -m app.rollback --to agent --dry-run   # 只打印将要删什么
-python -m app.rollback --to agent             # 撤到「只剩后台 + 核心」
-python -m app.rollback --to core --yes        # 撤到只剩核心 4 张表（全站数据）
+python run.py rollback --list                 # 看层级，不连库
+python run.py rollback --to agent --dry-run   # 只打印将要删什么
+python run.py rollback --to agent             # 撤到「只剩后台 + 核心」
+python run.py rollback --to core --yes        # 撤到只剩核心 4 张表（全站数据）
 ```
 
 层级（从新到旧）：`orchestration` → `agent` → `admin` → `core`。

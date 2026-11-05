@@ -1,8 +1,8 @@
 # 智能体评测报告 v1
 
 > 被测对象：SettleTrace 核对智能体（阶段 4/5），模型 DeepSeek-chat，语料 81 片、演示单据 8 行
-> 用例：`project/eval/cases.json`（30 条）　执行器：`project/eval/run_eval.py`
-> 报告日期：2026-11-05　原始结果：`project/eval/report.json`
+> 用例：`tests/eval/cases.json`（30 条）　执行器：`tests/eval/run_eval.py`
+> 报告日期：2026-11-05　原始结果：`tests/eval/report.json`
 
 ## 一、结论
 

@@ -22,7 +22,7 @@ services:
     volumes:
       - ./.pgdata:/var/lib/postgresql/data
       # 首次启动自动建表（只执行一次；改了 schema 要 down -v 重来）
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+      - ./src/sql/schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U settletrace -d settletrace"]
       interval: 5s

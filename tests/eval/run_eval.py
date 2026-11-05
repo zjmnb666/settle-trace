@@ -330,9 +330,11 @@ async def main() -> int:
 
     if args.reset:
         print("[准备] 重置演示数据…")
-        subprocess.run([sys.executable, "-m", "app.agent_seed", "--reset"],
-                       cwd=str(Path(__file__).resolve().parents[1]),
-                       check=False, capture_output=True)
+        # 结构迁移后 eval 在 tests/eval，项目根是 parents[2]；
+        # 用根目录的 run.py 作为统一入口，避免依赖 PYTHONPATH 设置。
+        root = Path(__file__).resolve().parents[2]
+        subprocess.run([sys.executable, str(root / "run.py"), "seed", "--reset"],
+                       cwd=str(root), check=False, capture_output=True)
         print("[准备] 完成")
 
     print(f"[开始] 共 {len(cases)} 条，目标 {args.base_url}\n")

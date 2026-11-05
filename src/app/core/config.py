@@ -19,7 +19,13 @@ _DOTENV_KEYS: set[str] = set()           # 从 .env 里读到的键，用于区�
 def _load_dotenv() -> None:
     """加载 .env。已存在的环境变量优先，不被文件覆盖。"""
     global DOTENV_PATH
-    candidates = [Path.cwd() / ".env", Path(__file__).resolve().parents[2] / ".env"]
+    # 目录调整后（src/app/core/config.py）项目根在 parents[3]；
+    # 保留 parents[2] 是为了兼容旧的平铺布局，多一个候选不影响优先级（cwd 最先）。
+    candidates = [
+        Path.cwd() / ".env",
+        Path(__file__).resolve().parents[3] / ".env",
+        Path(__file__).resolve().parents[2] / ".env",
+    ]
     for path in candidates:
         if not path.is_file():
             continue

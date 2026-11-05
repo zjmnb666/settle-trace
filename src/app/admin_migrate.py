@@ -54,7 +54,10 @@ async def main() -> int:
             # ---- 3. 回填历史切片 ----
             orphan = await conn.fetchval("SELECT count(*) FROM chunk WHERE doc_id IS NULL")
             if orphan:
-                corpus = Path(__file__).resolve().parents[2] / "discovery-report.md"
+                # 需求依据已移到 docs/requirements/ 下；
+                # 这里只用于给历史切片回填 doc.source_file，找不到就跳过。
+                corpus = (Path(__file__).resolve().parents[2]
+                          / "docs" / "requirements" / "discovery-report.md")
                 if not corpus.exists():
                     print(f"[3/3] 有 {orphan} 条切片没有 doc_id，但找不到源文件 {corpus}，跳过回填")
                 else:

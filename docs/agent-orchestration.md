@@ -1,7 +1,7 @@
 # SettleTrace · Agent 编排实现 v1
 
 > 对应「提示词 7：Agent 编排开发」。
-> 状态：已实现并通过真实模型端到端验证（2026-11-05）。代码在 `project/app/core/agent/`。
+> 状态：已实现并通过真实模型端到端验证（2026-11-05）。代码在 `src/app/core/agent/`。
 
 ---
 
