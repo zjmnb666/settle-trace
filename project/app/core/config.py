@@ -115,6 +115,13 @@ class Settings:
     # 上传文件大小上限（字节），默认 10MB
     max_upload_bytes: int = _int("MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
 
+    # ---------- 智能体 ----------
+    # 单份单据最多允许的"模型-工具"往返次数。设上限的理由不是省钱，
+    # 而是防止模型在一个死循环里把单据反复分析到超时（见 repeat_limit）。
+    agent_max_steps: int = _int("AGENT_MAX_STEPS", 12)
+    # 同一工具 + 同一参数重复调用达到该次数即中止，视为模型在打转
+    agent_repeat_limit: int = _int("AGENT_REPEAT_LIMIT", 3)
+
     # ---------- 其他 ----------
     log_level: str = _env("LOG_LEVEL", "INFO")
 

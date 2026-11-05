@@ -85,6 +85,60 @@ class LLMClient:
         except httpx.RequestError as e:
             raise AppError("E2001", f"LLM 网络错误: {e}") from e
 
+    # =========================================================================
+    # Function Calling（智能体用）
+    # =========================================================================
+    async def chat_with_tools(self, messages: list[dict], tools: list[dict],
+                              temperature: float = 0.0) -> dict:
+        """带上工具定义问一次模型，返回 {"content": str|None, "tool_calls": [...]}。
+
+        为什么不用流式：
+            工具调用要等模型把 arguments 拼完整才能执行，流式只会让"半个 JSON"
+            更难处理。智能体的每一步都短，等一次完整响应即可。
+
+        mock 模式直接拒绝（抛 E5004）而不是假装调用工具——
+            假装的智能体会让人误以为链路已经跑通，实际上全是写死的假象。
+        """
+        if self.provider == "mock":
+            raise AppError("E5004", "mock 模式不支持 function calling，"
+                                    "请配置 LLM_PROVIDER / LLM_API_KEY 后重启")
+
+        url = f"{settings.llm_base_url.rstrip('/')}/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        if settings.llm_api_key:
+            headers["Authorization"] = f"Bearer {settings.llm_api_key}"
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+            "temperature": temperature,
+            "max_tokens": settings.llm_max_tokens,
+        }
+
+        timeout = httpx.Timeout(settings.llm_timeout, connect=10.0)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code >= 400:
+                    body = resp.text[:300]
+                    raise AppError("E2001", f"LLM HTTP {resp.status_code}: {body}")
+                data = resp.json()
+        except httpx.TimeoutException as e:
+            raise AppError("E2002", f"LLM 超时: {e}") from e
+        except httpx.RequestError as e:
+            raise AppError("E2001", f"LLM 网络错误: {e}") from e
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise AppError("E2001", "模型未返回 choices")
+        msg = choices[0].get("message") or {}
+        return {
+            "content": msg.get("content"),
+            "tool_calls": msg.get("tool_calls") or [],
+            "raw_message": msg,       # 原样回灌到 messages，保持 tool_call_id 对应关系
+        }
+
     async def _mock_stream(self, messages: list[dict]) -> AsyncIterator[str]:
         """离线占位输出。按标点切块 + 20ms 间隔，模拟真实流式节奏。"""
         user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")

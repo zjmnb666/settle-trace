@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api.admin_auth import bootstrap_admin
 from .api.admin_audit import router as admin_audit_router
+from .api.agent import router as agent_router
 from .api.admin_knowledge import router as admin_knowledge_router
 from .api.admin_prompts import router as admin_prompt_router
 from .api.admin_auth import router as admin_auth_router
@@ -75,6 +76,7 @@ app.include_router(admin_pages_router)
 app.include_router(admin_knowledge_router)
 app.include_router(admin_prompt_router)
 app.include_router(admin_audit_router)
+app.include_router(agent_router)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
@@ -83,6 +85,13 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 async def index():
     """单页前端。原型不引模板引擎，直接返回静态文件。"""
     return FileResponse(str(STATIC_DIR / "index.html"))
+
+
+@app.get("/agent")
+async def agent_page():
+    """智能体核对页。同样放在主应用而不是后台，因为它是一线专员的作业入口，
+    不是管理员配置入口（后台只管语料/提示词/审计）。"""
+    return FileResponse(str(STATIC_DIR / "agent.html"))
 
 
 @app.exception_handler(AppError)

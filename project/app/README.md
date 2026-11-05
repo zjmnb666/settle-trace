@@ -192,6 +192,40 @@ ADMIN_INIT_PASSWORD=<你自己的密码>
 DELETE FROM admin_user WHERE username IN ('lin', 'wang', 'qin');
 ```
 
+## 智能体核对（阶段 4）
+
+页面 `http://127.0.0.1:8000/agent`（主应用，不是后台——这是一线专员的作业入口）。
+
+**首次使用要建表 + 灌演示数据**：
+
+```bash
+python -m app.agent_migrate      # 建 10 张表（幂等）
+python -m app.agent_seed         # 灌虚构演示单据 JS-2026-0318
+```
+
+**8 个工具 + 1 个固定作业顺序**，详见 `架构/Agent工具设计-v1.md`：
+
+| 层 | 工具 |
+|---|---|
+| L0 读 | `search_corpus` · `get_settlement` · `list_fee_lines` · `get_evidence`（批量） |
+| L1 分析 | `map_service_item`（批量）· `check_duplicates` |
+| L2 写 | `record_finding` · `build_review_draft` · `escalate_to_human` |
+
+**三条不能违反的约定**
+
+1. **顺序约束在代码里**：`build_review_draft` 前必须完成全部行的映射 + 查重，否则 `E5003` 并列出 missing。
+2. **写操作必须带来源定位**：`record_finding` 的 `evidence_refs` 为空直接拒绝。
+3. **没有付款/开票/确认/审批/删重复项的工具**——不是拦，是根本不存在。
+
+**模型要求**：必须支持 Function Calling。`LLM_PROVIDER=mock` 时接口返回 `E5004`，
+不会用固定脚本假装智能体。
+
+**运行记录**：每次 run 写 `agent_run`，每次工具调用写 `tool_call`（工具名、参数、耗时、错误码），
+页面刷新后会自动回填上次的轨迹。这张表同时是"模型只出建议"这件事的事后证明。
+
+**演示数据里刻意埋了四类问题**：第 5/6 行跨币种重复、第 7 行无凭证、第 8 行映射低置信度、
+v2 版本未确认。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |

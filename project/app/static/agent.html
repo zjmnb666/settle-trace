@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SettleTrace · 智能体核对</title>
+<style>
+  :root {
+    --c-bg: #f5f7fa; --c-panel: #fff; --c-text: #1f2937; --c-sub: #6b7280;
+    --c-line: #e5e7eb; --c-primary: #1565c0; --c-primary-weak: #e8f0fb;
+    --c-danger: #b42318; --c-danger-bg: #fef3f2; --c-ok: #067647; --c-warn: #b54708;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--c-bg); color: var(--c-text);
+    font: 14px/1.65 "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 22px 60px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  header b { font-size: 17px; }
+  header .sub { font-size: 12.5px; color: var(--c-sub); }
+  .sp { flex: 1; }
+  .card {
+    background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 8px;
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 12px; font-weight: 600; }
+  select, button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid var(--c-line); background: #fff; color: var(--c-text);
+  }
+  button.primary { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .banner {
+    display: none; padding: 10px 12px; border-radius: 6px; font-size: 13px;
+    background: var(--c-danger-bg); color: var(--c-danger);
+    border: 1px solid #f6cfcb; margin-bottom: 14px;
+  }
+  .banner.on { display: block; }
+  .notice {
+    background: #fffbf0; border: 1px solid #f3dfb6; color: #7a4a05;
+    border-radius: 6px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 14px;
+  }
+  .trace { font: 12.5px/1.6 "Consolas", monospace; }
+  .trace .row {
+    display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px dashed var(--c-line);
+  }
+  .trace .n { color: var(--c-sub); width: 26px; flex: 0 0 26px; }
+  .trace .tool { width: 170px; flex: 0 0 170px; color: var(--c-primary); }
+  .trace .res { flex: 1; color: var(--c-text); word-break: break-all; }
+  .trace .bad { color: var(--c-danger); }
+  .trace .ok { color: var(--c-ok); }
+  .trace .ms { color: var(--c-sub); width: 58px; text-align: right; flex: 0 0 58px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--c-line); }
+  th { color: var(--c-sub); font-weight: 600; background: #fafbfc; }
+  .tag {
+    display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px;
+    background: var(--c-primary-weak); color: var(--c-primary);
+  }
+  .tag.ok { background: #e7f6ec; color: var(--c-ok); }
+  .tag.gap { background: var(--c-danger-bg); color: var(--c-danger); }
+  .tag.warn { background: #fff4e5; color: var(--c-warn); }
+  .tag.grey { background: #f3f4f6; color: var(--c-sub); }
+  .muted { color: var(--c-sub); font-size: 12.5px; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat { border: 1px solid var(--c-line); border-radius: 8px; padding: 10px 14px; min-width: 120px; }
+  .stat .k { font-size: 12px; color: var(--c-sub); }
+  .stat .v { font-size: 22px; font-weight: 700; color: var(--c-primary); }
+  &.hidden { display: none; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <b>SettleTrace · 智能体核对</b>
+    <span class="sub">只读旁路 · 模型只出建议 · 草稿不是结算单</span>
+    <div class="sp"></div>
+    <a href="/" style="font-size:13px;color:var(--c-primary);text-decoration:none">← 返回问答</a>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="notice">
+    智能体会读取结算单、取证、映射服务项、查重并生成核对草稿。
+    草稿只是<strong>待复核的建议集</strong>：系统没有付款、开票、确认与审批能力，
+    也不提供删除疑似重复项的功能。
+  </div>
+
+  <div class="card">
+    <h2>选择结算单</h2>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <select id="settlement" style="min-width:320px">
+        <option value="">加载中…</option>
+      </select>
+      <button class="primary" id="runBtn">开始核对</button>
+      <span class="muted" id="runHint"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <h2 style="margin:0">工具调用轨迹</h2>
+      <div class="sp"></div>
+      <span class="muted" id="traceHint">尚未开始</span>
+    </div>
+    <div class="trace" id="trace">
+      <div class="muted">开始后会逐步显示模型调用了哪些工具、耗时多久、成败如何。</div>
+    </div>
+  </div>
+
+  <div class="card hide" id="draftCard">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <h2 style="margin:0">核对草稿</h2>
+      <span id="draftStatus"></span>
+      <div class="sp"></div>
+      <span class="muted" id="draftMeta"></span>
+    </div>
+    <div class="stats" id="draftStats"></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:6%">行</th>
+          <th style="width:22%">费用名称</th>
+          <th style="width:13%">金额</th>
+          <th style="width:22%">映射到的合同服务项</th>
+          <th style="width:9%">置信度</th>
+          <th style="width:8%">证据</th>
+          <th style="width:20%">状态</th>
+        </tr>
+      </thead>
+      <tbody id="draftRows"></tbody>
+    </table>
+    <div style="margin-top:14px">
+      <h2>登记的问题</h2>
+      <table>
+        <thead><tr><th style="width:18%">类型</th><th style="width:10%">严重度</th><th>说明</th></tr></thead>
+        <tbody id="findingRows"></tbody>
+      </table>
+    </div>
+    <p class="muted" id="disclaimer" style="margin-top:12px"></p>
+  </div>
+
+  <div class="card hide" id="summaryCard">
+    <h2>运行结论</h2>
+    <div id="summaryText" class="muted"></div>
+  </div>
+</div>
+
+<script>
+const bannerEl = document.getElementById('banner');
+const traceEl = document.getElementById('trace');
+const runBtn = document.getElementById('runBtn');
+const sel = document.getElementById('settlement');
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+function showError(msg) {
+  if (!msg) { bannerEl.classList.remove('on'); bannerEl.textContent = ''; return; }
+  bannerEl.textContent = msg; bannerEl.classList.add('on');
+}
+
+async function api(url) {
+  const r = await fetch(url);
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((d && d.message) || ('HTTP ' + r.status));
+  return d;
+}
+
+/* SSE 解析：与问答页同一套写法（\n\n 切帧） */
+function createSSEParser(onEvent) {
+  let buffer = '';
+  return (chunk) => {
+    buffer += chunk;
+    let i;
+    while ((i = buffer.indexOf('\n\n')) >= 0) {
+      const frame = buffer.slice(0, i);
+      buffer = buffer.slice(i + 2);
+      let event = 'message', data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      try { onEvent(event, JSON.parse(data)); } catch (e) { console.warn(e, frame); }
+    }
+  };
+}
+
+async function loadSettlements() {
+  try {
+    const d = await api('/api/agent/settlements');
+    if (!d.items.length) {
+      sel.innerHTML = '<option value="">（库里还没有结算单，先执行 python -m app.agent_seed）</option>';
+      return;
+    }
+    sel.innerHTML = d.items.map(x =>
+      `<option value="${esc(x.settlement_no)}">${esc(x.settlement_no)} · ${esc(x.client_id || '—')} · ${x.lines} 行</option>`
+    ).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败：' + esc(e.message) + '</option>';
+  }
+}
+
+function addTrace(row) {
+  if (traceEl.querySelector('.muted') && traceEl.children.length === 1) traceEl.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'row';
+  div.innerHTML = `
+    <span class="n">${row.n}</span>
+    <span class="tool">${esc(row.tool)}</span>
+    <span class="res ${row.ok ? 'ok' : 'bad'}">${esc(row.preview || (row.ok ? '完成' : '失败'))}</span>
+    <span class="ms">${row.ms != null ? row.ms + 'ms' : ''}</span>`;
+  traceEl.appendChild(div);
+  traceEl.scrollTop = traceEl.scrollHeight;
+}
+
+function renderDraft(d) {
+  const draft = d.draft, s = draft.summary || {};
+  document.getElementById('draftCard').classList.remove('hide');
+  document.getElementById('draftStatus').innerHTML = draft.status === 'draft'
+    ? '<span class="tag ok">可直接复核</span>'
+    : '<span class="tag gap">需人工复核</span>';
+  document.getElementById('draftMeta').textContent =
+    '草稿 ' + draft.id.slice(0, 8) + ' · ' + draft.created_at;
+  document.getElementById('draftStats').innerHTML = `
+    <div class="stat"><div class="k">费用行</div><div class="v">${draft.lines_total}</div></div>
+    <div class="stat"><div class="k">缺项</div><div class="v">${draft.lines_gap}</div></div>
+    <div class="stat"><div class="k">登记问题</div><div class="v">${draft.findings_total}</div></div>`;
+
+  document.getElementById('draftRows').innerHTML = (s.lines || []).map(l => {
+    const m = (l.mapped || [])[0];
+    const tag = l.status === 'gap' ? '<span class="tag gap">缺项</span>'
+      : l.status === 'flagged' ? '<span class="tag warn">有疑点</span>'
+      : '<span class="tag ok">正常</span>';
+    return `<tr>
+      <td>${l.line_no}</td>
+      <td>${esc(l.fee_name)}</td>
+      <td>${l.amount} ${esc(l.currency)}</td>
+      <td>${m ? esc(m.name) : '<span class="muted">无匹配</span>'}</td>
+      <td>${esc(l.confidence || '—')}</td>
+      <td>${l.evidence_count}</td>
+      <td>${tag} ${l.findings.length ? '<span class="muted">' + l.findings.map(esc).join('/') + '</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('findingRows').innerHTML = (d.findings || []).length
+    ? d.findings.map(f => `<tr>
+        <td>${esc(KIND[f.kind] || f.kind)}</td>
+        <td>${esc(f.severity)}</td>
+        <td>${esc(f.note)}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="muted">没有登记任何问题</td></tr>';
+
+  document.getElementById('disclaimer').textContent = s.disclaimer || '';
+}
+
+const KIND = {
+  duplicate: '疑似重复', unmapped: '无法映射', missing_evidence: '缺证据',
+  version_conflict: '版本矛盾', note: '备注', escalation: '转人工',
+};
+
+runBtn.addEventListener('click', async () => {
+  const no = sel.value;
+  if (!no) { showError('请先选择结算单'); return; }
+  showError('');
+  runBtn.disabled = true;
+  traceEl.innerHTML = '';
+  document.getElementById('draftCard').classList.add('hide');
+  document.getElementById('summaryCard').classList.add('hide');
+  document.getElementById('traceHint').textContent = '运行中…';
+
+  let toolCount = 0;
+  const parser = createSSEParser((event, data) => {
+    if (event === 'meta') {
+      document.getElementById('traceHint').textContent =
+        'run ' + data.run_id.slice(0, 8) + ' · ' + data.model;
+    } else if (event === 'step') {
+      toolCount = data.n;
+      addTrace({ n: data.n, tool: data.tool, ok: true, preview: '调用中…' });
+    } else if (event === 'tool_result') {
+      const last = traceEl.lastElementChild;
+      if (last) last.remove();
+      addTrace({ n: toolCount, tool: data.tool, ok: data.ok, preview: data.preview, ms: data.ms });
+    } else if (event === 'done') {
+      document.getElementById('summaryCard').classList.remove('hide');
+      document.getElementById('summaryText').textContent =
+        (data.message || '运行结束') +
+        `（共 ${data.steps} 步 / ${toolCount} 次工具调用，状态 ${data.status}）`;
+      document.getElementById('traceHint').textContent = `完成 · ${toolCount} 次调用`;
+      if (data.draft_id) {
+        api('/api/agent/drafts/latest?settlement_no=' + encodeURIComponent(no))
+          .then(renderDraft)
+          .catch(e => showError('草稿加载失败：' + e.message));
+      }
+    } else if (event === 'error') {
+      showError((data.code || '') + ' ' + (data.message || '运行失败'));
+      document.getElementById('traceHint').textContent = '已中止';
+    }
+  });
+
+  try {
+    const resp = await fetch('/api/agent/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settlement_no: no }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error((err.code ? err.code + ' ' : '') + (err.message || '请求失败'));
+    }
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder('utf-8');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parser(dec.decode(value, { stream: true }));
+    }
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+
+async function loadLatest(no) {
+  if (!no) return;
+  const q = '?settlement_no=' + encodeURIComponent(no);
+  // 轨迹与草稿分开拉：没有草稿（跑失败/转人工）时，轨迹仍然值得看
+  try {
+    const r = await api('/api/agent/runs/latest' + q);
+    traceEl.innerHTML = '';
+    (r.calls || []).forEach(c => addTrace({
+      n: c.seq, tool: c.tool, ok: c.ok, ms: c.ms,
+      preview: c.ok ? '完成' : ('失败 ' + (c.error_code || '')),
+    }));
+    document.getElementById('traceHint').textContent =
+      '上次运行 ' + r.run.started_at + ' · ' + r.run.status + ' · ' + r.calls.length + ' 次调用';
+  } catch (e) { /* 没跑过就不显示 */ }
+  try {
+    const d = await api('/api/agent/drafts/latest' + q);
+    renderDraft(d);
+  } catch (e) { /* 没有草稿是正常情况 */ }
+}
+
+loadSettlements().then(() => loadLatest(sel.value));
+sel.addEventListener('change', () => {
+  document.getElementById('draftCard').classList.add('hide');
+  loadLatest(sel.value);
+});
+</script>
+</body>
+</html>
