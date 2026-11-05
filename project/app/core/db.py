@@ -5,7 +5,7 @@
 引入 ORM 只会让"向量检索 + 数据范围过滤"这条 SQL 变难写，不如直写。
 
 并发说明：
-    message.seq 用 MAX(seq)+1 计算，原型是单人会话，够用。
+    message.seq 用 MAX(seq)+1 计算，外层用 advisory lock 保证同一会话串行。
     上生产要改成 `SELECT ... FOR UPDATE` 或数据库序列，否则同一会话并发提问会撞号。
     （已用 UNIQUE(session_id, seq) 兜底，撞了会报错而不是静默错序）
 """
@@ -149,6 +149,15 @@ async def append_message(session_id: str, role: str, content: str = "",
     """
     async with pool().acquire() as conn:
         async with conn.transaction():
+            # 并发安全：同一会话的追加必须先串行化。
+            # 裸跑 MAX(seq)+1 时，两个并发事务会读到同一个 MAX，撞 UNIQUE(session_id, seq)
+            # （表现为 500 + UniqueViolationError，用户看到"系统内部错误"）。
+            # 用事务级 advisory lock：按 session_id 取锁，事务提交/回滚自动释放，
+            # 不需要 unlock，也不会吊死连接。
+            # hashtext 有碰撞可能，碰撞只会让两个不同会话短暂串行，不影响正确性。
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", session_id
+            )
             seq = await conn.fetchval(
                 "SELECT COALESCE(MAX(seq), 0) + 1 FROM message WHERE session_id = $1",
                 session_id,

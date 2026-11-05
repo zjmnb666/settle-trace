@@ -188,6 +188,24 @@ async def run_agent(question: str, settlement_no: str | None = None,
     if llm_client.provider == "mock":
         raise AppError("E5004", "智能体需要支持 function calling 的模型；当前 LLM_PROVIDER=mock")
 
+    # 同一单据并发核对会产生两份 preview 草稿，复核人分不清该看哪一份。
+    # 这里做一次前置检查：已有 RUNNING 且 10 分钟内启动的 run 就拒绝。
+    # 10 分钟窗口是给进程崩溃留的出口——僵尸 run 不会永久占住单据。
+    if mode == "review" and settlement_no:
+        async with db.pool().acquire() as conn:
+            busy = await conn.fetchval(
+                """SELECT 1 FROM agent_run
+                   WHERE settlement_no = $1 AND status = 'running'
+                     AND started_at > now() - interval '10 minutes'
+                   LIMIT 1""",
+                settlement_no,
+            )
+        if busy:
+            raise AppError(
+                "E5006",
+                f"结算单 {settlement_no} 已有核对任务在运行，请等待完成后再试",
+            )
+
     limit = settings.agent_max_rounds
     run_id = await _start_run(settlement_no, llm_client.model)
     ledger = Ledger(run_id=run_id, settlement_no=settlement_no or "")

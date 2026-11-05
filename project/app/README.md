@@ -349,9 +349,31 @@ SSE 事件顺序：`meta` → `status`(检索) → `status`(生成) → `delta`�
 - 客户端主动断开时的 `truncated` 落库与前端"回答未完成"提示
 - 多轮上下文（6 轮）在真实数据下的效果
 
+## 数据库回滚
+
+迁移只有 up 会让"改错了"变成"重建库"。`sql/down/` 下每个迁移都有对应的 down，
+`app/rollback.py` 负责按层级执行。
+
+```bash
+python -m app.rollback --list                 # 看层级，不连库
+python -m app.rollback --to agent --dry-run   # 只打印将要删什么
+python -m app.rollback --to agent             # 撤到「只剩后台 + 核心」
+python -m app.rollback --to core --yes        # 撤到只剩核心 4 张表（全站数据）
+```
+
+层级（从新到旧）：`orchestration` → `agent` → `admin` → `core`。
+`--to X` 表示撤到 X 为止（含 X）。
+
+**它不替你备份。** 把备份放进回滚脚本会让人以为"回滚很安全"——
+发布前做快照（`pg_dump` + `.env` + 提示词版本号 + 语料清单）是独立动作，见上线清单 R5。
+
+**已知边界**：down 脚本尚未在隔离库实际执行过（生产库不敢跑）。上线前应在测试库演练一次。
+
 ## 已知限制
 
-1. `message.seq` 用 `MAX(seq)+1`，同一会话并发提问会撞 `UNIQUE(session_id, seq)` 报错 —— 单人会话语境下可接受
+1. `message.seq` 的并发已用 `pg_advisory_xact_lock` 串行化（10 并发实测通过），
+   但同一会话并发提问仍会各自检索、各自调模型，属于重复消耗，不做请求合并
 2. 限流是进程内字典，多实例部署要换 Redis
 3. 数据范围（`scope_client`）只透传与记录，检索层已留参数位但未加过滤条件 —— 接真实语料时补 `WHERE`
 4. mock 向量是 1024 维哈希，只验证链路，不验证语义质量；真实效果要换 embedding 模型
+5. 同一单据并发核对会被拒（`E5006`），但 10 分钟窗口内的僵尸 `running` 记录会短暂占住单据
