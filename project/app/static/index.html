@@ -78,6 +78,9 @@
   }
   .btn:hover { border-color: #c7ccd4; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
+  /* 链接形式的按钮：与 button 视觉一致，但保留 <a> 的语义（可新标签打开） */
+  a.btn { text-decoration: none; display: inline-block; line-height: 1.4; color: var(--c-text); }
+  a.btn.primary-link { color: var(--c-primary); border-color: #cfe0f7; background: var(--c-primary-weak); }
 
   /* ---------- 消息区 ---------- */
   .stream {
@@ -204,6 +207,8 @@
       </select>
     </div>
     <span class="pill" id="healthPill">检查中…</span>
+    <a class="btn primary-link" href="/agent"
+       title="进入整单核对：读单据、取证、映射服务项、查重，生成核对草稿">整单核对 →</a>
     <button class="btn" id="newChatBtn" title="清空当前对话，开一个新会话">新会话</button>
   </header>
 
