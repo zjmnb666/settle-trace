@@ -93,7 +93,17 @@ async def ask(prompt: dict):
         raise AppError("E1001", "question 不能为空")
     if len(question) > settings.max_question_len:
         raise AppError("E1003", f"当前 {len(question)} 字")
-    return _stream_sse(lambda emit: run_ask(question, settlement_no, user, emit))
+
+    # 多轮上下文：结构非法直接拒绝（E1001），内容超长交给 loop.trim_history 裁剪。
+    # 这里只做形状校验，避免客户端塞进任意大对象把请求体撑爆。
+    history = prompt.get("history") or []
+    if not isinstance(history, list):
+        raise AppError("E1001", "history 必须是数组")
+    if len(history) > 20:
+        raise AppError("E1001", "history 最多 20 条")
+
+    return _stream_sse(lambda emit: run_ask(question, settlement_no, user, emit,
+                                            history=history))
 
 
 @router.post("/drafts/{draft_id}/confirm")

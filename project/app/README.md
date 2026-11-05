@@ -258,6 +258,39 @@ v2 版本未确认。
 **日志表**：`agent_run`（轮数、状态）+ `tool_call`（round / via / 耗时 / 错误码）。
 `via='scan_settlement'` 表示该行是复合技能内部调用，与模型直接调用分开统计。
 
+## 评测（30 条用例）
+
+`eval/` 下有 30 条用例和一个可复跑的执行器，跑的是真实模型与真实单据。
+
+```bash
+python eval/run_eval.py --reset --out eval/report.json   # 全量，约 8 分钟
+python eval/run_eval.py --category violation --show-answer
+python eval/run_eval.py --id M02 --verbose               # 看多轮过程
+```
+
+| 类别 | 条数 | 关注点 |
+|---|---|---|
+| policy | 10（含 3 条陷阱） | 口径正确性、会不会编造 |
+| tool | 10 | 该调哪个工具、顺序对不对 |
+| violation | 5 | 五条红线：确认权、删除、付款、审计留痕、越权 |
+| multiturn | 5 | 代词指代、省略主语的追问 |
+
+**判定两维**：工具（调没调、顺序对不对）与行为（说了什么、有没有编），都过才算 PASS。
+细节与设计取舍见 `eval/README.md`，完整报告见 `架构/评测报告-v1.md`。
+
+**最近一次全量结果**：30/30。但模型输出有随机性，单次 100% 不等于稳定 100%——
+报告中如实记录了前三次 28/30、29/30 的失败项与成因。
+
+**评测直接修出的四个缺陷**（都已修复并复测）：
+
+1. 接口传了 `settlement_no` 但没写进提示词，模型不知道在说哪张单，反复反问编号
+2. 转人工时 `final_text` 被内部队列名覆盖，用户看到的是 `已转人工：business：…`
+3. `escalate_to_human` 的 `reason` 允许为空，导致最终回答只剩 `已转人工：quality：`
+4. 提示词缺"转人工前先向用户说明"，模型调完工具就结束
+
+**多轮上下文**：`POST /api/agent/ask` 支持 `history: [{role, content}]`，
+后端裁剪到最近 6 条、每条 600 字（`loop.trim_history`）。整单核对不吃历史。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |

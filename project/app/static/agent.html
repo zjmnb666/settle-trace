@@ -20,6 +20,12 @@
   header b { font-size: 17px; }
   header .sub { font-size: 12.5px; color: var(--c-sub); }
   .sp { flex: 1; }
+  .qa { margin-top: 10px; }
+  .qa .u { font-size: 13px; font-weight: 600; color: var(--c-text); margin-bottom: 4px; }
+  .qa .u::before { content: "问 "; color: var(--c-sub); font-weight: 400; }
+  .qa .a { font-size: 13px; line-height: 1.72; color: var(--c-text);
+           white-space: pre-wrap; padding-left: 22px; }
+  .qa .a.pending { color: var(--c-sub); }
   .navback {
     font-size: 13px; color: var(--c-primary); text-decoration: none;
     border: 1px solid #cfe0f7; background: var(--c-primary-weak);
@@ -113,8 +119,10 @@
       <input id="q" placeholder="例如：滞留费的计费口径是什么？ 第 5 行和第 6 行算重复吗？"
              style="flex:1;min-width:320px;padding:7px 10px;border:1px solid var(--c-line);border-radius:6px;font:inherit;font-size:13px">
       <button class="primary" id="askBtn">提问</button>
+      <button id="askClear" title="清空对话记录，下一句不再带上文">清空</button>
     </div>
-    <div id="answer" class="muted" style="margin-top:10px"></div>
+    <!-- 对话流：追问依赖上文（"那第 7 行呢"），所以历史要显示出来并随请求回传 -->
+    <div id="askLog" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -418,13 +426,40 @@ async function loadLatest(no) {
 }
 
 // ---- 自由提问：与核对共用轨迹面板，但答案单独显示 ----
+// 多轮对话历史。只保留最近 3 轮（6 条），与后端 trim_history 的上限一致。
+let askHistory = [];
+
+const askLog = document.getElementById('askLog');
+
+function appendQA(question, answer, pending) {
+  const box = document.createElement('div');
+  box.className = 'qa';
+  const q = document.createElement('div');
+  q.className = 'u';
+  q.textContent = question;
+  const a = document.createElement('div');
+  a.className = 'a' + (pending ? ' pending' : '');
+  a.textContent = answer;
+  box.appendChild(q); box.appendChild(a);
+  askLog.appendChild(box);
+  askLog.scrollTop = askLog.scrollHeight;
+  return a;
+}
+
+document.getElementById('askClear').addEventListener('click', () => {
+  askHistory = [];
+  askLog.innerHTML = '';
+  traceEl.innerHTML = '';
+  document.getElementById('traceHint').textContent = '';
+});
+
 document.getElementById('askBtn').addEventListener('click', async () => {
   const question = document.getElementById('q').value.trim();
   if (!question) { showError('请先输入问题'); return; }
   showError('');
   const btn = document.getElementById('askBtn');
   btn.disabled = true;
-  document.getElementById('answer').textContent = '思考中…';
+  const answerEl = appendQA(question, '思考中…', true);
   traceEl.innerHTML = '';
   let n = 0;
 
@@ -438,10 +473,16 @@ document.getElementById('askBtn').addEventListener('click', async () => {
       addTrace({ round: data.round, n: data.n, tool: data.tool, ok: data.ok,
                  preview: data.preview, ms: data.ms });
     } else if (event === 'done') {
-      document.getElementById('answer').textContent =
-        data.message || '（模型未返回文字结论，请看轨迹）';
+      const text = data.message || '（模型未返回文字结论，请看轨迹）';
+      answerEl.classList.remove('pending');
+      answerEl.textContent = text;
+      // 写入历史：下一句追问靠它解析"它""那第 N 行呢"
+      askHistory.push({ role: 'user', content: question });
+      askHistory.push({ role: 'assistant', content: text.slice(0, 600) });
+      if (askHistory.length > 6) askHistory = askHistory.slice(-6);
       document.getElementById('traceHint').textContent =
-        `完成 · ${data.rounds} 轮 / ${data.calls} 次工具调用`;
+        `完成 · ${data.rounds} 轮 / ${data.calls} 次工具调用`
+        + (askHistory.length > 2 ? ` · 已带 ${askHistory.length / 2} 轮上下文` : '');
       if (data.draft_id) loadLatest(sel.value);
     } else if (event === 'error') {
       showError((data.code || '') + ' ' + (data.message || '失败'));
@@ -451,7 +492,8 @@ document.getElementById('askBtn').addEventListener('click', async () => {
   try {
     const resp = await fetch('/api/agent/ask', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: question, user_id: 'web' }),
+      body: JSON.stringify({ question: question, settlement_no: sel.value || null,
+                             user_id: 'web', history: askHistory }),
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
@@ -466,7 +508,8 @@ document.getElementById('askBtn').addEventListener('click', async () => {
     }
   } catch (e) {
     showError(e.message);
-    document.getElementById('answer').textContent = '';
+    answerEl.classList.remove('pending');
+    answerEl.textContent = '（本次提问失败，未计入上下文）';
   } finally {
     btn.disabled = false;
   }

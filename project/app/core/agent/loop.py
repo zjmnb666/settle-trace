@@ -152,13 +152,38 @@ async def _load_preview(draft_id: str) -> dict:
     }
 
 
+# 多轮上下文：只保留最近 3 轮（6 条），每条截断 600 字。
+# 截断的理由——助手回答常带整张表格与引用定位，原样回传会让上下文迅速膨胀，
+# 而多轮追问真正需要的是"上一轮在说什么"，不是逐字复述。
+# 注意：这里不做摘要、不做改写，只裁长度——审计要求能还原模型当时看到了什么。
+HISTORY_MAX_MSGS = 6
+HISTORY_MAX_CHARS = 600
+
+
+def trim_history(history: list[dict] | None) -> list[dict]:
+    """校验并裁剪客户端带来的对话历史。非法条目直接丢弃，不报错。"""
+    out: list[dict] = []
+    for m in (history or [])[-HISTORY_MAX_MSGS:]:
+        if not isinstance(m, dict):
+            continue
+        role = m.get("role")
+        content = (m.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        out.append({"role": role, "content": content[:HISTORY_MAX_CHARS]})
+    return out
+
+
 async def run_agent(question: str, settlement_no: str | None = None,
                     user: str | None = None, emit: Emit = None,
-                    mode: str = "review") -> dict:
+                    mode: str = "review",
+                    history: list[dict] | None = None) -> dict:
     """跑一次智能体任务。
 
     mode='review'：整单核对，目标产出"待确认草稿"
     mode='ask'   ：自由提问（"滞留费怎么算""这两行算重复吗"），目标是一段带引用的回答
+
+    history 仅提问模式使用：追问里的"它""那第 7 行呢"要靠上文才能解析。
     """
     if llm_client.provider == "mock":
         raise AppError("E5004", "智能体需要支持 function calling 的模型；当前 LLM_PROVIDER=mock")
@@ -167,11 +192,12 @@ async def run_agent(question: str, settlement_no: str | None = None,
     run_id = await _start_run(settlement_no, llm_client.model)
     ledger = Ledger(run_id=run_id, settlement_no=settlement_no or "")
     user_prompt = (agent_user_prompt(settlement_no) if mode == "review"
-                   else ask_user_prompt(question))
-    messages: list[dict] = [
-        {"role": "system", "content": AGENT_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ]
+                   else ask_user_prompt(question, settlement_no))
+    messages: list[dict] = [{"role": "system", "content": AGENT_SYSTEM_PROMPT}]
+    # 只有提问模式吃历史：整单核对是一次独立任务，混入上一单的对话会污染判断
+    if mode == "ask":
+        messages.extend(trim_history(history))
+    messages.append({"role": "user", "content": user_prompt})
 
     if emit:
         await emit("meta", {"run_id": run_id, "settlement_no": settlement_no,
@@ -289,7 +315,16 @@ async def run_agent(question: str, settlement_no: str | None = None,
                               f"登记问题 {st['findings']} 条。草稿已生成但尚未确认，"
                               "请核对后点「确认草稿」；系统不提供确认与审批能力。")
             elif ledger.escalated:
-                final_text = f"已转人工：{ledger.escalation_reason or '需要人工判断'}"
+                # 队列名是内部概念（business / quality / data），直接抛给用户看不懂。
+                # 而且要说明"我不能做什么"，否则用户只看到一句转办，等于没回答。
+                q, _, why = (ledger.escalation_reason or "").partition("：")
+                qname = {"business": "业务负责人",
+                         "quality": "质量负责人",
+                         "data": "数据/技术负责人"}.get(q, q or "人工")
+                final_text = (f"这件事我无法自行处理，已转给{qname}。\n\n"
+                              f"原因：{why or '需要人工判断'}\n\n"
+                              "说明：系统不具备确认、删除、付款、审批这四类能力，"
+                              "这些动作只能由人来完成；我能做的是取证、登记疑点并留下记录。")
             else:
                 final_text = "本次运行未生成草稿，请查看工具调用轨迹确认卡在哪一步。"
 
@@ -319,7 +354,11 @@ async def run_review(settlement_no: str, user: str | None = None,
 
 
 async def run_ask(question: str, settlement_no: str | None = None,
-                  user: str | None = None, emit: Emit = None) -> dict:
-    """自由提问：只查口径，或针对某份单据问一个具体问题。"""
+                  user: str | None = None, emit: Emit = None,
+                  history: list[dict] | None = None) -> dict:
+    """自由提问：只查口径，或针对某份单据问一个具体问题。
+
+    history 传最近几轮问答，用于解析"它""那第 N 行呢"这类指代。
+    """
     return await run_agent(question, settlement_no=settlement_no, user=user,
-                           emit=emit, mode="ask")
+                           emit=emit, mode="ask", history=history)

@@ -689,17 +689,24 @@ async def _build_review_draft(conn: asyncpg.Connection, ledger: Ledger, args: di
 
 
 async def _escalate_to_human(conn: asyncpg.Connection, ledger: Ledger, args: dict) -> dict:
+    # reason 必填。实测（评测 V03）模型漏传 reason 时，最终回答只剩下
+    # "已转人工：quality："——用户拿不到任何解释，等于白问一次。
+    # 这里直接拒绝，让它补一句"为什么需要人工"，比允许空转更有用。
+    reason = (args.get("reason") or "").strip()
+    if not reason:
+        raise AppError("E5002", "reason 不能为空：请说明缺什么、为什么无法继续")
+
+    queue = args.get("queue") or "quality"
     fid = str(uuid.uuid4())
     await conn.execute(
         """INSERT INTO finding (id, settlement_id, fee_line_id, kind, severity, note,
                                 evidence_refs, created_by_tool)
            VALUES ($1,$2,NULL,'escalation','high',$3,'[]'::jsonb,'escalate_to_human')""",
-        fid, ledger.settlement_id,
-        f"[{args.get('queue', 'quality')}] {args.get('reason', '')}",
+        fid, ledger.settlement_id, f"[{queue}] {reason}",
     )
     ledger.findings += 1
     ledger.escalated = True
-    ledger.escalation_reason = f"{args.get('queue', 'quality')}：{args.get('reason', '')}"
+    ledger.escalation_reason = f"{queue}：{reason}"
     return {"escalation_id": fid, "queue": args.get("queue"),
             "ok": True, "note": "已转人工队列，本次运行到此结束"}
 
