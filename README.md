@@ -9,39 +9,62 @@
 > 不代表任何企业真实经营数据。文中「55 分钟/份」「160 份/月」等数字为虚构基线，
 > 仅用于方案设计参照，须经实测校准后方可作为承诺。
 
+## 已实现范围
+
+| 阶段 | 内容 | 入口 |
+|---|---|---|
+| 1 | 命令行检索原型：切片 → 向量化 → FAISS + BM25 → RRF 融合 → LLM | `python rag_cli.py ask` |
+| 2 | 对话入口：FastAPI + SSE 流式、pgvector 混合检索、引用定位 | `/` |
+| 3 | 管理后台：登录鉴权、语料管理、提示词模板、对话审计 | `/admin` |
+| 4 | 核对智能体：9 个工具 + 闸口校验 + 固定作业顺序 + 工具轨迹审计 | `/agent` |
+| 5 | Agent 编排：5 轮上限、复合技能、草稿待人工确认、提问模式 | `/agent` |
+
+四个页面的职责分工：
+
+```
+/          结算口径问答     一线专员，一问一答，带引用
+/agent     整单核对         一线专员，读单据 → 取证 → 映射 → 查重 → 出草稿
+/admin     管理后台         管理员，语料 / 提示词 / 审计（一线专员进不去）
+```
+
 ## 目录结构
 
 ```
 settle-trace/
 ├── discovery-report.md          需求依据：6 个角色、36 条访谈事实（f00–f55）
 ├── 需求/                        一页纸需求清单（docx / pdf / 源 HTML）
-├── 架构/                        技术架构选型（五层架构、11 张表、实施切片）
+├── 架构/
+│   ├── SettleTrace-架构选型-v1.md    五层架构、11 张表、第一周切片
+│   ├── 管理后台设计-v1.md            页面/接口/权限矩阵/DDL/分批计划
+│   ├── Agent工具设计-v1.md          9 个工具的 Function Calling 规范与顺序约束
+│   └── Agent编排-v1.md              5 轮上限怎么做出来的、轨迹如何接入审计
 ├── 报价、设计方案/              对甲方的商务方案与报价单
 ├── 流程图/                      现状流程图、AI 数智化流程图，及出图脚本
-├── 分析/                        过程分析材料
-└── project/                     代码与运行产物
+├── 分析/                        过程分析材料与试点项目方案
+└── project/
+    ├── rag_cli.py               阶段 1：命令行检索原型
+    ├── app/                     阶段 2–5：FastAPI 服务
+    ├── sql/                     建表脚本（基础 / 后台 / 智能体域）
+    └── README.md                ★ 运行说明与已验证清单，从这里开始看
 ```
 
-## 快速开始（阶段 1 原型：文档检索）
+## 快速开始
 
 ```bash
 cd project
-pip install faiss-cpu rank-bm25 jieba numpy
+python -m venv .venv && .venv\Scripts\activate
+pip install -r requirements.txt
 
-# 建索引（切片 500 字上限、80 字重叠、不跨标题）
-python rag_cli.py build --corpus ../discovery-report.md
+copy .env.example .env      # 填 DATABASE_URL（PostgreSQL 16 + pgvector）
+python -m app.check_db      # 8 步自检：连接 / 扩展 / 表 / 维度 / 切片
+python -m app.admin_migrate # 后台表 + 提示词 v1 + 历史切片回填
+python -m app.agent_migrate # 智能体域 10 张表 + 编排补丁
+python -m app.agent_seed    # 演示单据 JS-2026-0318（虚构）
 
-# 提问（默认离线 mock 模式，无需 API Key 即可验证链路）
-python rag_cli.py ask --question "跨币种重复费用应该怎么处理？"
-
-# 接真实模型
-LLM_PROVIDER=deepseek LLM_MODEL=deepseek-chat LLM_API_KEY=sk-xxx \
-EMB_PROVIDER=openai EMB_MODEL=text-embedding-3-small \
-python rag_cli.py ask --question "..."
+uvicorn app.main:app --reload --port 8000
 ```
 
-原型链路：Markdown 三级切片 → 向量化 → FAISS → BM25（jieba 分词）→ RRF 混合检索 Top3
-→ 拼提示词 → LLM 回答。脚本内标注 `[复用]` 的六个模块可直接迁移到生产代码。
+细节（云 PG 连接串写法、初始管理员、模型配置、常见报错）见 `project/app/README.md`。
 
 ## 关键决策
 
@@ -53,8 +76,9 @@ python rag_cli.py ask --question "..."
 | 版本 | 追加式不可变，有效期 + 确认状态双条件判定 |
 | 币种 | 存原币金额 + 汇率 + 汇率日期 + 折算规则版本 |
 | 权限 | 6 类角色 × 数据范围（客户/项目），查询层强制过滤 |
-| 检索 | 单库 PostgreSQL + pgvector，不引独立向量库 |
-| 人工闸口 | 疑点裁定、正式确认、审批放行三处必须人工 |
+| 检索 | 单库 PostgreSQL + pgvector；字面检索用内存 BM25（PG 无中文分词） |
+| 智能体 | 自建立 harness，不引第三方框架；顺序约束在代码里，不在提示词里 |
+| 人工闸口 | 疑点裁定、正式确认、审批放行三处必须人工；草稿另需人工确认 |
 
 ## 红线
 
@@ -64,8 +88,28 @@ python rag_cli.py ask --question "..."
 4. 疑似重复项**不自动删除**，只标记 + 填理由
 5. 每条结果必须可定位到 文件 + 页码/行号 + 字段
 
+对应到代码的三道防线：
+
+- **工具不存在**：`pay` / `issue_invoice` / `confirm_settlement` / `approve` /
+  `delete_duplicate` 不在工具清单里；`confirm_draft()` 也没注册成工具，模型调不到
+- **闸口校验**：`build_review_draft` 前必须完成全部行映射 + 查重 + 无证据行已登记缺项，
+  否则返回 `E5003` 并列出缺什么
+- **系统提示词**：标准作业顺序、五条转人工情形、禁止声称已确认
+
+## 已知边界
+
+- 服务项映射目前是字面匹配（分词重叠 + 包含加分），不是语义向量；候选不合理时靠
+  `need_human` 兜住，需人工判断
+- 查重只看单据内，跨单据（同一笔费用在两个批次各报一次）未做
+- 提示词热更新在单实例内即时生效；多实例靠 10 秒 TTL，要秒级需加 Redis pub/sub
+- 切片上万条时 `retriever.reload()` 需改异步任务，目前同步重建
+- 演示账号与测试数据在交付前应按 `project/app/README.md` 的说明清理
+
 ## 文档版本
 
 - 需求清单 v0.1 · 2026-10-30
 - 设计方案与报价书 V1.0 · 2026-10-30
 - 技术架构选型 v1 · 2026-10-30
+- 管理后台设计 v1 · 2026-10-30
+- Agent 工具设计 v1 · 2026-10-30
+- Agent 编排 v1 · 2026-10-30
