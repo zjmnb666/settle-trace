@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import uuid
 from datetime import date, datetime
 from typing import Any
@@ -309,3 +310,213 @@ def _iso(dt: datetime | None) -> str | None:
     if dt.tzinfo is None:
         return dt.isoformat(timespec="seconds")
     return dt.astimezone().isoformat(timespec="seconds")
+
+
+# =============================================================================
+# 智能体运行轨迹（阶段 5 分析用）
+# =============================================================================
+# 状态中文名。与 agent_run.status 的 CHECK 一一对应，前端与 CSV 共用。
+RUN_STATUS_LABEL = {
+    "running": "运行中",
+    "ok": "完成",
+    "awaiting_confirmation": "待人工确认",
+    "escalated": "已转人工",
+    "failed": "失败",
+    "budget_exceeded": "超轮次上限",
+}
+
+# via 的中文名：模型直接调用 vs 复合技能内部调用
+VIA_LABEL = {None: "模型直接", "scan_settlement": "scan 内部"}
+
+
+def _run_filters(settlement: str | None, status: str | None,
+                 date_from: str | None, date_to: str | None) -> tuple[str, list[Any]]:
+    where: list[str] = []
+    args: list[Any] = []
+    if settlement:
+        args.append(f"%{settlement}%")
+        where.append(f"r.settlement_no ILIKE ${len(args)}")
+    if status:
+        args.append(status)
+        where.append(f"r.status = ${len(args)}")
+    if date_from:
+        args.append(date.fromisoformat(date_from))
+        where.append(f"r.started_at >= ${len(args)}::date")
+    if date_to:
+        args.append(date.fromisoformat(date_to))
+        where.append(f"r.started_at < (${len(args)}::date + 1)")
+    return (" AND ".join(where) if where else "TRUE"), args
+
+
+async def list_runs(conn: asyncpg.Connection, settlement: str | None = None,
+                    status: str | None = None, date_from: str | None = None,
+                    date_to: str | None = None, page: int = 1,
+                    page_size: int = 20) -> dict:
+    page = max(1, page)
+    page_size = min(100, max(1, page_size))
+    where_sql, args = _run_filters(settlement, status, date_from, date_to)
+    n = len(args)
+
+    total = await conn.fetchval(
+        f"SELECT count(*) FROM agent_run r WHERE {where_sql}", *args
+    )
+    rows = await conn.fetch(
+        f"""SELECT r.id, r.settlement_no, r.status, r.rounds, r.steps,
+                   r.model, r.error, r.started_at, r.finished_at,
+                   (SELECT count(*) FROM tool_call c WHERE c.run_id = r.id) AS calls,
+                   (SELECT count(*) FROM tool_call c
+                     WHERE c.run_id = r.id AND c.via IS NULL) AS model_calls,
+                   (SELECT count(*) FROM tool_call c
+                     WHERE c.run_id = r.id AND NOT c.ok) AS failures
+            FROM agent_run r
+            WHERE {where_sql}
+            ORDER BY r.started_at DESC
+            LIMIT ${n + 1} OFFSET ${n + 2}""",
+        *args, page_size, (page - 1) * page_size,
+    )
+
+    items = []
+    for r in rows:
+        dur = None
+        if r["finished_at"] and r["started_at"]:
+            dur = int((r["finished_at"] - r["started_at"]).total_seconds())
+        items.append({
+            "id": r["id"], "settlement_no": r["settlement_no"],
+            "status": r["status"], "status_label": RUN_STATUS_LABEL.get(r["status"], r["status"]),
+            "rounds": r["rounds"] if r["rounds"] is not None else r["steps"],
+            "model": r["model"], "error": r["error"],
+            "started_at": _iso(r["started_at"]),
+            "finished_at": _iso(r["finished_at"]),
+            "duration_sec": dur,
+            "calls": r["calls"], "model_calls": r["model_calls"],
+            "failures": r["failures"],
+        })
+    return {"total": int(total or 0), "page": page, "page_size": page_size, "items": items}
+
+
+async def run_detail(conn: asyncpg.Connection, run_id: str) -> dict:
+    run = await conn.fetchrow(
+        """SELECT id, settlement_no, settlement_id, status, rounds, steps,
+                  model, error, started_at, finished_at, draft_id
+           FROM agent_run WHERE id = $1""",
+        run_id,
+    )
+    if not run:
+        raise AppError("E4007", f"run_id={run_id}")
+    calls = await conn.fetch(
+        """SELECT seq, round, tool, args, ok, error_code, result_chars, ms, via
+           FROM tool_call WHERE run_id = $1 ORDER BY seq""",
+        run_id,
+    )
+    # 优先按 run 上记录的 draft_id 查（可靠）；没有再用"同单据且时间在运行之后"兜底，
+    # 兼容 draft_id 列上线之前的老记录。
+    draft = None
+    if run["draft_id"]:
+        draft = await conn.fetchrow(
+            """SELECT id, status, lines_total, lines_gap, findings_total, created_at
+               FROM review_draft WHERE id = $1""",
+            run["draft_id"],
+        )
+    if draft is None and run["settlement_id"]:
+        draft = await conn.fetchrow(
+            """SELECT id, status, lines_total, lines_gap, findings_total, created_at
+               FROM review_draft
+               WHERE settlement_id = $1 AND created_at >= $2
+               ORDER BY created_at ASC LIMIT 1""",
+            run["settlement_id"], run["started_at"],
+        )
+
+    return {
+        "run": {
+            "id": run["id"], "settlement_no": run["settlement_no"],
+            "status": run["status"], "status_label": RUN_STATUS_LABEL.get(run["status"], run["status"]),
+            "rounds": run["rounds"] if run["rounds"] is not None else run["steps"],
+            "model": run["model"], "error": run["error"],
+            "started_at": _iso(run["started_at"]), "finished_at": _iso(run["finished_at"]),
+        },
+        "draft": ({"id": draft["id"], "status": draft["status"],
+                   "lines_total": draft["lines_total"], "lines_gap": draft["lines_gap"],
+                   "findings_total": draft["findings_total"]} if draft else None),
+        "calls": [{
+            "seq": c["seq"], "round": c["round"], "tool": c["tool"],
+            "via": c["via"], "via_label": VIA_LABEL.get(c["via"], c["via"] or "模型直接"),
+            "ok": c["ok"], "error_code": c["error_code"],
+            "result_chars": c["result_chars"], "ms": c["ms"],
+            "args_brief": _args_brief(c["args"]),
+        } for c in calls],
+    }
+
+
+async def tool_stats(conn: asyncpg.Connection, days: int = 7) -> list[dict]:
+    """按工具聚合近 N 天的调用次数与耗时。
+
+    这是"阶段 5 分析"最小可用的一个视图：一眼看出哪个工具最慢、
+    哪些调用在失败。等数据量上来，再按 round 分布、按结算单规模分桶。
+    """
+    rows = await conn.fetch(
+        """SELECT tool,
+                  count(*) AS n,
+                  avg(ms)::int AS avg_ms,
+                  max(ms) AS max_ms,
+                  sum(CASE WHEN NOT ok THEN 1 ELSE 0 END) AS fails,
+                  sum(CASE WHEN via IS NULL THEN 1 ELSE 0 END) AS model_calls,
+                  sum(CASE WHEN via IS NOT NULL THEN 1 ELSE 0 END) AS inner_calls
+           FROM tool_call
+           WHERE created_at >= now() - make_interval(days => $1)
+           GROUP BY tool
+           ORDER BY n DESC""",
+        days,
+    )
+    return [{
+        "tool": r["tool"], "calls": r["n"], "avg_ms": r["avg_ms"],
+        "max_ms": r["max_ms"], "failures": int(r["fails"] or 0),
+        "model_calls": int(r["model_calls"] or 0),
+        "inner_calls": int(r["inner_calls"] or 0),
+    } for r in rows]
+
+
+async def runs_csv(conn: asyncpg.Connection, settlement: str | None = None,
+                   status: str | None = None, date_from: str | None = None,
+                   date_to: str | None = None) -> bytes:
+    """导出逐条工具调用（一行一次调用），便于在 Excel 里做耗时与失败分析。"""
+    where_sql, args = _run_filters(settlement, status, date_from, date_to)
+    rows = await conn.fetch(
+        f"""SELECT r.id AS run_id, r.settlement_no, r.status AS run_status,
+                   r.rounds, r.model, r.started_at,
+                   c.seq, c.round, c.tool, c.via, c.ok, c.error_code,
+                   c.result_chars, c.ms, c.args::text AS args
+            FROM agent_run r
+            JOIN tool_call c ON c.run_id = r.id
+            WHERE {where_sql}
+            ORDER BY r.started_at DESC, c.seq ASC""",
+        *args,
+    )
+    if not rows:
+        return b""
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["运行ID", "结算单", "运行状态", "轮数", "模型", "开始时间",
+                "序号", "轮次", "工具", "来源", "成功", "错误码",
+                "返回字符", "耗时(ms)", "参数"])
+    for r in rows:
+        w.writerow([
+            r["run_id"], r["settlement_no"] or "", r["run_status"],
+            r["rounds"] or "", r["model"] or "",
+            _iso(r["started_at"]).replace("T", " ")[:19],
+            r["seq"], r["round"] or "", r["tool"],
+            VIA_LABEL.get(r["via"], r["via"] or "模型直接"),
+            "是" if r["ok"] else "否", r["error_code"] or "",
+            r["result_chars"] or 0, r["ms"] or 0,
+            (r["args"] or "").replace("\n", " ")[:300],
+        ])
+    return ("\ufeff" + buf.getvalue()).encode("utf-8")
+
+
+def _args_brief(raw: Any) -> str:
+    """参数摘要：只留前 80 字符，避免表格被 UUID 撑爆。"""
+    if raw is None:
+        return ""
+    text = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False, default=str)
+    text = text.replace("{", "").replace("}", "").replace('"', "")
+    return text[:80] + ("…" if len(text) > 80 else "")

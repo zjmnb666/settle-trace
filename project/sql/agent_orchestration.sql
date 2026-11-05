@@ -49,3 +49,10 @@ ALTER TABLE agent_run DROP CONSTRAINT IF EXISTS agent_run_status_check;
 ALTER TABLE agent_run ADD CONSTRAINT agent_run_status_check
     CHECK (status IN ('running', 'ok', 'escalated', 'failed',
                       'budget_exceeded', 'awaiting_confirmation'));
+
+-- -----------------------------------------------------------------------------
+-- 5) agent_run 记录本次运行产出的草稿
+--    原来审计页靠"同单据 + 时间在运行之后"去猜哪份草稿是这次跑出来的，
+--    重灌演示数据后 settlement_id 变了就断链。直接存 draft_id 更可靠。
+-- -----------------------------------------------------------------------------
+ALTER TABLE agent_run ADD COLUMN IF NOT EXISTS draft_id TEXT;

@@ -101,7 +101,7 @@ LLM_API_KEY=sk-xxxxxxxx
 | 概览 | `/admin` | 语料数 / 切片数 / 今日回答 / 待处理标记 + 系统状态 |
 | 语料管理 | `/admin/knowledge` | 上传 md/txt/有文字层 PDF → 切片 → 向量化 → 入库；列表、切片明细、删除 |
 | 提示词模板 | `/admin/prompts` | 编辑系统提示词、保存为新版本、一键激活（即时生效）、版本历史 |
-| 对话审计 | `/admin/audit` | 按员工/角色/日期/是否已标记筛选；看问答与引用原文；标记与撤销；导出 CSV |
+| 对话审计 | `/admin/audit` | 两个标签：**对话记录**（问答+引用+人工标记）与 **智能体运行**（轮数、工具轨迹、工具耗时概览，可导出 CSV）。`#runs` 可直接链接 |
 
 接口：`POST /admin/api/login`、`POST /admin/api/logout`、`GET /admin/api/me`、
 `GET/POST/DELETE /admin/api/docs`、`GET /admin/api/docs/{id}/chunks`、

@@ -24,7 +24,28 @@
   }
   .flagitem { font-size: 12.5px; color: var(--c-danger); margin-top: 6px; }
   .flagitem .muted { color: var(--c-sub); }
+
+  /* 两个视角切换：对话记录侧重"谁问了什么"，智能体运行侧重"模型调了什么" */
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab {
+    font: inherit; font-size: 13px; padding: 7px 16px; cursor: pointer;
+    border: 1px solid var(--c-line); background: #fff; color: var(--c-text);
+    border-radius: 6px;
+  }
+  .tab.on { background: var(--c-primary-weak); border-color: #cfe0f7; color: var(--c-primary); font-weight: 600; }
+  .hide { display: none !important; }
+  .kv { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+  .kv div { color: var(--c-sub); }
+  .kv b { color: var(--c-text); }
 </style>
+
+<!-- 切换条：对话记录（用户视角） / 智能体运行（模型视角） -->
+<div class="tabs">
+  <button class="tab on" id="tabSessions">对话记录</button>
+  <button class="tab" id="tabRuns">智能体运行</button>
+</div>
+
+<div id="panelSessions">
 
 <div class="card">
   <h2>筛选</h2>
@@ -108,6 +129,115 @@
   <div class="muted" id="detailMeta" style="margin-bottom:12px"></div>
   <div id="msgList"></div>
 </div>
+
+</div><!-- /panelSessions -->
+
+<!-- ===================== 智能体运行（工具轨迹） ===================== -->
+<div id="panelRuns" class="hide">
+
+  <div class="card">
+    <h2>筛选</h2>
+    <div class="filters">
+      <div>
+        <label>结算单号</label>
+        <input type="text" id="rSettlement" placeholder="留空为全部" style="width:150px">
+      </div>
+      <div>
+        <label>运行状态</label>
+        <select id="rStatus">
+          <option value="">全部</option>
+          <option value="ok">完成</option>
+          <option value="awaiting_confirmation">待人工确认</option>
+          <option value="escalated">已转人工</option>
+          <option value="failed">失败</option>
+          <option value="budget_exceeded">超轮次上限</option>
+        </select>
+      </div>
+      <div>
+        <label>起始日期</label>
+        <input type="date" id="rFrom">
+      </div>
+      <div>
+        <label>截止日期</label>
+        <input type="date" id="rTo">
+      </div>
+      <button class="btn primary" id="rSearchBtn">查询</button>
+      <button class="btn" id="rResetBtn">重置</button>
+      <div style="flex:1"></div>
+      <button class="btn" id="rExportBtn">导出 CSV</button>
+    </div>
+    <p class="muted" style="margin:10px 0 0">
+      每次运行记录轮数、模型、错误；每次工具调用记录 <code>round</code>（第几轮）与
+      <code>via</code>（模型直接调用 / scan_settlement 内部调用），用于分析收敛速度与各工具耗时。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>工具耗时概览 <span class="muted" style="font-weight:400">（最近 7 天）</span></h2>
+    <table>
+      <thead>
+        <tr><th style="width:32%">工具</th><th style="width:12%">调用次数</th>
+            <th style="width:14%">平均耗时</th><th style="width:14%">最慢</th>
+            <th style="width:12%">失败</th><th>来源</th></tr>
+      </thead>
+      <tbody id="statRows"><tr><td colspan="6" class="muted">加载中…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
+      <h2 style="margin:0">运行列表</h2>
+      <div style="flex:1"></div>
+      <span class="muted" id="rHint"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%">开始时间</th>
+          <th style="width:14%">结算单</th>
+          <th style="width:13%">状态</th>
+          <th style="width:8%">轮数</th>
+          <th style="width:9%">调用</th>
+          <th style="width:9%">耗时</th>
+          <th style="width:12%">模型</th>
+          <th style="width:8%">操作</th>
+        </tr>
+      </thead>
+      <tbody id="runRows"><tr><td colspan="8" class="muted">加载中…</td></tr></tbody>
+    </table>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px">
+      <button class="btn" id="rPrevBtn">上一页</button>
+      <button class="btn" id="rNextBtn">下一页</button>
+      <span class="muted" id="rPager"></span>
+    </div>
+  </div>
+
+  <div class="card hide" id="runDetailCard">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
+      <h2 style="margin:0" id="runTitle">运行轨迹</h2>
+      <div style="flex:1"></div>
+      <button class="btn" id="closeRun">收起</button>
+    </div>
+    <div class="kv" id="runMeta" style="margin-bottom:12px"></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:6%">seq</th>
+          <th style="width:7%">轮次</th>
+          <th style="width:26%">工具</th>
+          <th style="width:14%">来源</th>
+          <th style="width:8%">结果</th>
+          <th style="width:10%">耗时</th>
+          <th style="width:10%">返回字符</th>
+          <th>参数摘要</th>
+        </tr>
+      </thead>
+      <tbody id="callRows"></tbody>
+    </table>
+    <p class="muted" id="runError" style="margin-top:10px"></p>
+  </div>
+
+</div><!-- /panelRuns -->
 {% endblock %}
 
 {% block script %}
@@ -326,6 +456,162 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   const p = query();
   window.location.href = '/admin/api/audit/export.csv?' + p.toString();
 });
+
+/* ===================== 智能体运行（工具轨迹） ===================== */
+const runRows = document.getElementById('runRows');
+const callRows = document.getElementById('callRows');
+const statRows = document.getElementById('statRows');
+const runDetailCard = document.getElementById('runDetailCard');
+let rPage = 1;
+let currentRun = null;
+
+function runQuery() {
+  const p = new URLSearchParams();
+  const v = (id) => document.getElementById(id).value.trim();
+  if (v('rSettlement')) p.set('settlement', v('rSettlement'));
+  if (v('rStatus')) p.set('status', v('rStatus'));
+  if (v('rFrom')) p.set('date_from', v('rFrom'));
+  if (v('rTo')) p.set('date_to', v('rTo'));
+  return p;
+}
+
+const RUN_STATUS_TAG = {
+  ok: '<span class="tag ok">完成</span>',
+  awaiting_confirmation: '<span class="tag warn">待人工确认</span>',
+  escalated: '<span class="tag grey">已转人工</span>',
+  failed: '<span class="tag gap">失败</span>',
+  budget_exceeded: '<span class="tag gap">超轮次</span>',
+  running: '<span class="tag">运行中</span>',
+};
+
+async function loadStats() {
+  statRows.innerHTML = '<tr><td colspan="6" class="muted">加载中…</td></tr>';
+  try {
+    const d = await api('/admin/api/audit/runs/stats?days=7');
+    if (!d.items.length) {
+      statRows.innerHTML = '<tr><td colspan="6" class="muted">最近 7 天还没有工具调用记录</td></tr>';
+      return;
+    }
+    statRows.innerHTML = d.items.map(s => `
+      <tr>
+        <td><b>${esc(s.tool)}</b></td>
+        <td>${s.calls}</td>
+        <td>${s.avg_ms} ms</td>
+        <td>${s.max_ms} ms</td>
+        <td>${s.failures ? '<span class="tag gap">' + s.failures + '</span>' : '0'}</td>
+        <td class="muted">模型直接 ${s.model_calls} / 技能内部 ${s.inner_calls}</td>
+      </tr>`).join('');
+  } catch (e) {
+    statRows.innerHTML = '<tr><td colspan="6" class="muted">加载失败：' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function loadRuns() {
+  const p = runQuery();
+  p.set('page', rPage);
+  p.set('page_size', 20);
+  runRows.innerHTML = '<tr><td colspan="8" class="muted">加载中…</td></tr>';
+  try {
+    const d = await api('/admin/api/audit/runs?' + p.toString());
+    if (!d.items.length) {
+      runRows.innerHTML = '<tr><td colspan="8" class="muted">还没有运行记录。' +
+        '到 <code>/agent</code> 跑一次核对就会出现。</td></tr>';
+    } else {
+      runRows.innerHTML = d.items.map(r => `
+        <tr>
+          <td class="muted">${fmtTime(r.started_at)}</td>
+          <td>${esc(r.settlement_no || '—')}</td>
+          <td>${RUN_STATUS_TAG[r.status] || esc(r.status_label)}</td>
+          <td>${r.rounds || 0}</td>
+          <td>${r.calls}${r.failures ? ' <span class="tag gap">' + r.failures + ' 失败</span>' : ''}</td>
+          <td class="muted">${r.duration_sec != null ? r.duration_sec + 's' : '—'}</td>
+          <td class="muted">${esc(r.model || '—')}</td>
+          <td><button class="btn" data-run="${r.id}">轨迹</button></td>
+        </tr>`).join('');
+    }
+    const pages = Math.max(1, Math.ceil(d.total / d.page_size));
+    document.getElementById('rPager').textContent =
+      '共 ' + d.total + ' 次运行，第 ' + d.page + '/' + pages + ' 页';
+  } catch (e) {
+    runRows.innerHTML = '<tr><td colspan="8" class="muted">加载失败：' + esc(e.message) + '</td></tr>';
+  }
+}
+
+async function openRun(runId) {
+  runDetailCard.classList.remove('hide');
+  callRows.innerHTML = '<tr><td colspan="8" class="muted">加载中…</td></tr>';
+  try {
+    const d = await api('/admin/api/audit/runs/' + runId);
+    currentRun = runId;
+    document.getElementById('runTitle').textContent =
+      '运行轨迹 · ' + (d.run.settlement_no || d.run.id.slice(0, 8));
+    document.getElementById('runMeta').innerHTML = `
+      <div>状态 <b>${esc(d.run.status_label)}</b></div>
+      <div>轮数 <b>${d.run.rounds || 0}</b></div>
+      <div>模型 <b>${esc(d.run.model || '—')}</b></div>
+      <div>开始 <b>${fmtTime(d.run.started_at)}</b></div>
+      <div>结束 <b>${fmtTime(d.run.finished_at)}</b></div>
+      ${d.draft ? `<div>草稿 <b>${esc(d.draft.status)}</b>（${d.draft.lines_total} 行 / 缺项 ${d.draft.lines_gap}）</div>` : ''}`;
+    document.getElementById('runError').textContent = d.run.error ? '错误：' + d.run.error : '';
+
+    // 同一轮内的多条调用合并显示：轮次列只在首行写，看着像分组
+    let lastRound = null;
+    callRows.innerHTML = d.calls.map(c => {
+      const first = c.round !== lastRound;
+      lastRound = c.round;
+      return `<tr>
+        <td class="muted">${c.seq}</td>
+        <td>${first ? '<b>R' + (c.round || '?') + '</b>' : ''}</td>
+        <td>${esc(c.tool)}</td>
+        <td class="muted">${esc(c.via_label)}</td>
+        <td>${c.ok ? '<span class="tag ok">成功</span>'
+                   : '<span class="tag gap">' + esc(c.error_code || '失败') + '</span>'}</td>
+        <td class="muted">${c.ms != null ? c.ms + 'ms' : '—'}</td>
+        <td class="muted">${c.result_chars || 0}</td>
+        <td class="muted" style="font-size:12px">${esc(c.args_brief || '')}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" class="muted">没有工具调用记录</td></tr>';
+  } catch (e) {
+    callRows.innerHTML = '<tr><td colspan="8" class="muted">加载失败：' + esc(e.message) + '</td></tr>';
+  }
+}
+
+runRows.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button');
+  if (btn && btn.dataset.run) openRun(btn.dataset.run);
+});
+document.getElementById('closeRun').addEventListener('click', () => {
+  runDetailCard.classList.add('hide');
+});
+document.getElementById('rSearchBtn').addEventListener('click', () => { rPage = 1; loadRuns(); });
+document.getElementById('rResetBtn').addEventListener('click', () => {
+  ['rSettlement', 'rFrom', 'rTo'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('rStatus').value = '';
+  rPage = 1; loadRuns();
+});
+document.getElementById('rPrevBtn').addEventListener('click', () => {
+  if (rPage > 1) { rPage--; loadRuns(); }
+});
+document.getElementById('rNextBtn').addEventListener('click', () => { rPage++; loadRuns(); });
+document.getElementById('rExportBtn').addEventListener('click', () => {
+  window.location.href = '/admin/api/audit/runs/export.csv?' + runQuery().toString();
+});
+
+// ---- 视角切换：对话记录（用户视角） / 智能体运行（模型视角） ----
+function switchTab(which, silent) {
+  const isRuns = which === 'runs';
+  // 用 hash 记住当前视角：刷新不跳回、也方便直接把链接发给同事
+  if (!silent) history.replaceState(null, '', isRuns ? '#runs' : '#sessions');
+  document.getElementById('panelRuns').classList.toggle('hide', !isRuns);
+  document.getElementById('panelSessions').classList.toggle('hide', isRuns);
+  document.getElementById('tabRuns').classList.toggle('on', isRuns);
+  document.getElementById('tabSessions').classList.toggle('on', !isRuns);
+  if (isRuns) { loadStats(); loadRuns(); }
+}
+document.getElementById('tabSessions').addEventListener('click', () => switchTab('sessions'));
+document.getElementById('tabRuns').addEventListener('click', () => switchTab('runs'));
+// 首次进入按 hash 决定视角
+switchTab(location.hash === '#runs' ? 'runs' : 'sessions', true);
 
 loadList();
 </script>

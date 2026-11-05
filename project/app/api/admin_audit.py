@@ -95,3 +95,51 @@ async def export(user: str | None = None, role: str | None = None,
                 f"attachment; filename=audit.csv; filename*=UTF-8''{quote(fname)}",
         },
     )
+
+
+# =============================================================================
+# 智能体运行轨迹（阶段 5 分析）
+# =============================================================================
+@router.get("/runs", dependencies=[Depends(require("audit:view"))])
+async def list_runs(settlement: str | None = None, status: str | None = None,
+                    date_from: str | None = None, date_to: str | None = None,
+                    page: int = 1, page_size: int = 20):
+    async with db.pool().acquire() as conn:
+        return await audit_service.list_runs(
+            conn, settlement=settlement, status=status, date_from=date_from,
+            date_to=date_to, page=page, page_size=page_size,
+        )
+
+
+@router.get("/runs/stats", dependencies=[Depends(require("audit:view"))])
+async def run_stats(days: int = 7):
+    async with db.pool().acquire() as conn:
+        return {"days": days, "items": await audit_service.tool_stats(conn, days=days)}
+
+
+@router.get("/runs/export.csv", dependencies=[Depends(require("audit:view"))])
+async def export_runs(settlement: str | None = None, status: str | None = None,
+                      date_from: str | None = None, date_to: str | None = None):
+    async with db.pool().acquire() as conn:
+        content = await audit_service.runs_csv(
+            conn, settlement=settlement, status=status,
+            date_from=date_from, date_to=date_to,
+        )
+    if not content:
+        raise AppError("E4007", "没有可导出的运行记录")
+
+    fname = f"工具轨迹-{settlement or '全部'}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition":
+                f"attachment; filename=agent-runs.csv; filename*=UTF-8''{quote(fname)}",
+        },
+    )
+
+
+@router.get("/runs/{run_id}", dependencies=[Depends(require("audit:view"))])
+async def run_detail(run_id: str):
+    async with db.pool().acquire() as conn:
+        return await audit_service.run_detail(conn, run_id)

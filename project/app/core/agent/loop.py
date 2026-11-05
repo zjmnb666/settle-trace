@@ -95,13 +95,15 @@ async def _start_run(settlement_no: str | None, model: str) -> str:
 
 
 async def _finish_run(run_id: str, status: str, rounds: int,
-                      error: str | None = None) -> None:
+                      error: str | None = None,
+                      draft_id: str | None = None) -> None:
     async with db.pool().acquire() as conn:
         await conn.execute(
             """UPDATE agent_run
-                  SET status=$2, steps=$3, rounds=$3, error=$4, finished_at=now()
+                  SET status=$2, steps=$3, rounds=$3, error=$4,
+                      draft_id=COALESCE($5, draft_id), finished_at=now()
                 WHERE id=$1""",
-            run_id, status, rounds, (error or "")[:500] or None,
+            run_id, status, rounds, (error or "")[:500] or None, draft_id,
         )
 
 
@@ -291,7 +293,7 @@ async def run_agent(question: str, settlement_no: str | None = None,
             else:
                 final_text = "本次运行未生成草稿，请查看工具调用轨迹确认卡在哪一步。"
 
-        await _finish_run(run_id, status, rounds)
+        await _finish_run(run_id, status, rounds, draft_id=ledger.draft_id)
         return {"run_id": run_id, "status": status, "rounds": rounds,
                 "steps": rounds, "calls": len(trace),
                 "draft_id": ledger.draft_id, "message": final_text,
