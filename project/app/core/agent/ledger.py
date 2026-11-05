@@ -41,6 +41,10 @@ class Ledger:
     findings: int = 0
     escalated: bool = False
     escalation_reason: str | None = None
+    awaiting_confirmation: bool = False   # 草稿已生成，等人工确认
+    scanned: bool = False                # 是否已用 scan_settlement 完成整单扫描
+    last_ms: int = 0                     # 最近一次工具耗时，供上层推送事件
+    _seq: int = 0                        # tool_call 序号（含 skill 内部调用）
     draft_id: str | None = None
     draft_stats: dict = field(default_factory=dict)
 
@@ -48,6 +52,15 @@ class Ledger:
     call_counts: dict[str, int] = field(default_factory=dict)
 
     # ------------------------------------------------------------------ 记录
+    def next_seq(self) -> int:
+        """预留一个 tool_call 序号。
+
+        父调用先占号，skill 内部调用取后续号，这样按 seq 排序时父在前、子在后，
+        日志的层级关系一眼能看出来。
+        """
+        self._seq += 1
+        return self._seq
+
     def note_call(self, tool: str, args: dict) -> int:
         key = tool + "|" + json.dumps(args, ensure_ascii=False, sort_keys=True)
         self.call_counts[key] = self.call_counts.get(key, 0) + 1

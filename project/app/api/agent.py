@@ -18,7 +18,9 @@ from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
 from ..core import db
-from ..core.agent import run_review
+from ..core.agent import run_ask, run_review
+from ..core.agent.tools import confirm_draft
+from ..core.config import settings
 from ..core.errors import AppError
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -28,20 +30,21 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
 
-@router.post("/review")
-async def review(payload: dict):
-    settlement_no = (payload.get("settlement_no") or "").strip()
-    user = (payload.get("user_id") or "").strip() or None
-    if not settlement_no:
-        raise AppError("E1001", "settlement_no 不能为空")
+def _stream_sse(make_task) -> StreamingResponse:
+    """把"跑一次 agent 任务"包成 SSE 流。
 
+    为什么用队列 + 0.1 秒轮询，而不是直接 await 任务：
+        任务内部的 emit 是回调形式，要边跑边推；同时又必须保证任务结束后
+        队列里剩下的帧都发完（否则最后一个 draft_preview / done 会丢）。
+        轮询写法不优雅，但不会有竞态——这种地方"能看懂 + 不丢帧"比优雅重要。
+    """
     async def gen():
         q: asyncio.Queue = asyncio.Queue()
 
         async def emit(event: str, data: dict) -> None:
             await q.put((event, data))
 
-        task = asyncio.create_task(run_review(settlement_no, user, emit))
+        task = asyncio.create_task(make_task(emit))
         try:
             while True:
                 try:
@@ -68,6 +71,42 @@ async def review(payload: dict):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/review")
+async def review(payload: dict):
+    """整单核对。跑到生成待确认草稿为止，不替人确认。"""
+    settlement_no = (payload.get("settlement_no") or "").strip()
+    user = (payload.get("user_id") or "").strip() or None
+    if not settlement_no:
+        raise AppError("E1001", "settlement_no 不能为空")
+    return _stream_sse(lambda emit: run_review(settlement_no, user, emit))
+
+
+@router.post("/ask")
+async def ask(prompt: dict):
+    """自由提问：只查口径，或针对某份单据问一个具体问题。"""
+    question = (prompt.get("question") or "").strip()
+    settlement_no = (prompt.get("settlement_no") or "").strip() or None
+    user = (prompt.get("user_id") or "").strip() or None
+    if not question:
+        raise AppError("E1001", "question 不能为空")
+    if len(question) > settings.max_question_len:
+        raise AppError("E1003", f"当前 {len(question)} 字")
+    return _stream_sse(lambda emit: run_ask(question, settlement_no, user, emit))
+
+
+@router.post("/drafts/{draft_id}/confirm")
+async def confirm(draft_id: str, payload: dict | None = None):
+    """人工确认草稿。模型无法调用——这个动作只存在于 HTTP 接口上。
+
+    确认前草稿是 preview（无任何效力），确认后才变成 draft / needs_review。
+    注意这两个状态也都不是"已确认/已审批"：本系统没有那种状态，
+    正式确认与审批在业务侧完成，系统只提供依据。
+    """
+    user = ((payload or {}).get("user_id") or "").strip() or None
+    result = await confirm_draft(draft_id, user)
+    return result
 
 
 @router.get("/settlements")

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-"""智能体的 8 个工具：定义（Function Calling 规范）+ 实现 + 执行闸口。
+"""智能体的 9 个工具：定义（Function Calling 规范）+ 实现 + 执行闸口。
 
 为什么工具要分三层
     L0 读（1-4）无副作用，随便调
     L1 分析（5-6）只做计算，不落库，可以反复调
     L2 写（7-9）一定留痕，且必须带来源定位
 这样分层的好处：模型乱调 L0/L1 不会造成任何污染，只有 L2 需要闸口。
+另有 1 个复合技能 scan_settlement：把 L0+L1 串成一轮做完，为了满足 5 轮上限。
 
 为什么没有 pay / issue_invoice / confirm / delete 这几个工具
     这是六条红线里成本最低的实现方式：不提供，模型就无法调用。
@@ -17,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from typing import Any
 
@@ -87,6 +89,13 @@ TOOL_SPECS: list[dict] = [
         "在整单范围内查重（含跨币种按汇率折算后比较）。只给高/中/低与依据链，不删除任何数据。",
         {"settlement_id": {"type": "string"}},
         ["settlement_id"]),
+
+    # ---------------- 复合技能（一轮完成整单扫描） ----------------
+    _fn("scan_settlement",
+        "整单扫描：一次完成 读单据 + 读费用行 + 批量取证 + 批量服务项映射 + 查重。"
+        "这是核对主流程的入口，调用它之后直接进入登记疑点环节，不要再逐行调单步工具。",
+        {"settlement_no": {"type": "string"}},
+        ["settlement_no"]),
 
     # ---------------- L2 写 ----------------
     _fn("record_finding",
@@ -338,6 +347,169 @@ async def _check_duplicates(conn: asyncpg.Connection, settlement_id: str) -> dic
     }
 
 
+async def _scan_settlement(conn: asyncpg.Connection, ledger: Ledger, args: dict,
+                           round_no: int, log=None) -> dict:
+    """复合技能：一轮内按固定顺序跑完 读单据→读行→取证→映射→查重。
+
+    为什么需要这个技能（提示词 7 的"最多 5 轮"）：
+        8 行费用如果逐行取证 + 逐行映射，光搬数据就要 5 轮以上，轮次全花在
+        "模型再决策一次要不要读下一行"这种没有判断价值的动作上。
+        合成一轮之后，模型可以把 5 轮用在真正需要判断的地方：
+        登记哪几条疑点、哪些行算缺项、要不要转人工。
+
+    为什么顺序写死在这而不是交给模型：
+        这五步是纯数据依赖（没有单据就没有行，没有行就没有证据），
+        不存在需要模型临场判断的分支。把确定性流程交给模型编排，
+        只会让每份单据的执行路径都不一样，审计时说不清。
+    """
+    no = (args.get("settlement_no") or ledger.settlement_no or "").strip()
+    if not no:
+        return {"ok": False, "code": "E5002", "message": "settlement_no 不能为空"}
+
+    steps: list[dict] = []
+
+    async def step(name: str, a: dict, fn):
+        """执行一个子步骤并单独记一条 tool_call（via=scan_settlement）。
+
+        子步骤单独记日志，是为了阶段 5 分析能算出"取证耗时多少、映射耗时多少"；
+        如果只记一条复合调用，这些细粒度信息就丢了。
+        """
+        t0 = time.perf_counter()
+        try:
+            res = await fn()
+        except AppError as e:
+            res = {"ok": False, "code": e.code, "message": e.message}
+        ms = int((time.perf_counter() - t0) * 1000)
+        steps.append({"tool": name, "ok": bool(res.get("ok")), "ms": ms,
+                      "summary": _brief(res)})
+        if log:
+            await log(ledger.next_seq(), name, a, res, ms, round_no, "scan_settlement")
+        return res
+
+    # ① 单据头 + 版本
+    # 注意：_settlement() / _list_fee_lines() 返回的是纯数据（没有 ok 字段），
+    # 在 _dispatch 里由外层补 ok；这里直接调用，必须自己补，否则会被当成失败。
+    async def _head():
+        return {"ok": True, **(await _settlement(conn, no))}
+
+    head = await step("get_settlement", {"settlement_no": no}, _head)
+    if not head.get("ok"):
+        return head
+    ledger.loaded_settlement = True
+    sid = head["settlement"]["id"]
+    ledger.settlement_id = sid
+    current = [v for v in head["versions"] if v["is_current"]]
+    ledger.version_id = current[0]["version_id"] if current else None
+
+    # ② 费用行
+    async def _lines():
+        return {"ok": True, **(await _list_fee_lines(conn, sid))}
+
+    lines = await step("list_fee_lines", {"settlement_id": sid}, _lines)
+    if not lines.get("ok"):
+        return lines
+    rows = lines["lines"]
+    ledger.line_ids = [r["id"] for r in rows]
+    ledger.line_names = {r["id"]: r["fee_name"] for r in rows}
+    ids = ledger.line_ids
+
+    # ③ 批量取证
+    async def _evidence_all():
+        items = []
+        for lid in ids:
+            items.append({"fee_line_id": lid, **(await _get_evidence(conn, lid))})
+        return {"ok": True, "rows": len(ids), "items": items,
+                "without_evidence": [i["fee_line_id"] for i in items if i["count"] == 0]}
+
+    ev = await step("get_evidence", {"fee_line_ids": ids}, _evidence_all)
+    ev_count = {i["fee_line_id"]: i["count"] for i in (ev.get("items") or [])}
+    # 把证据定位也带出来：record_finding 的 evidence_refs 需要 voucher+page+field，
+    # 只给"证据 1 条"的话模型还得再调一次 get_evidence 才能填，白费一轮。
+    ev_refs: dict[str, list] = {}
+    for item in (ev.get("items") or []):
+        refs = [{"voucher": it["file_name"], "page": it["page_no"],
+                 "field": it["field_name"]} for it in (item.get("items") or [])][:3]
+        ev_refs[item["fee_line_id"]] = refs
+    for lid, n in ev_count.items():
+        if n:
+            ledger.evidence_seen.add(lid)
+
+    # ④ 批量映射
+    async def _map_all():
+        out = []
+        for lid in ids:
+            out.append({"fee_line_id": lid, **(await _map_service_item(conn, lid))})
+        return {"ok": True, "rows": len(ids), "items": out,
+                "need_human": [o["fee_line_id"] for o in out if o.get("need_human")]}
+
+    mp = await step("map_service_item", {"fee_line_ids": ids}, _map_all)
+    for o in mp.get("items") or []:
+        ledger.mapped[o["fee_line_id"]] = o
+
+    # ⑤ 查重
+    # 同样要自己补 ok：_check_duplicates 返回的是纯数据。
+    # 这个漏补会导致 duplicates_checked=False → 闸口判定"尚未查重" → 草稿被拦，
+    # 而且模型看不出原因（它明明调过查重了）。踩过一次，记在这里。
+    async def _dup():
+        return {"ok": True, **(await _check_duplicates(conn, sid))}
+
+    dup = await step("check_duplicates", {"settlement_id": sid}, _dup)
+    ledger.duplicates_checked = bool(dup.get("ok"))
+
+    # ---- 汇总成紧凑结果：只给判断所需的信息，不把原始证据全塞回上下文 ----
+    dup_lines: dict[str, list] = {}
+    for pair in dup.get("pairs") or []:
+        for ln in pair["lines"]:
+            dup_lines.setdefault(ln["fee_line_id"], []).append(
+                {"level": pair["level"], "peer_line": other_line_no(pair, ln["fee_line_id"]),
+                 "cross_currency": pair["cross_currency"]})
+
+    by_id = {r["id"]: r for r in rows}
+    compact = []
+    for lid in ids:
+        r = by_id[lid]
+        m = ledger.mapped.get(lid) or {}
+        top = (m.get("candidates") or [{}])[0] if m.get("candidates") else {}
+        compact.append({
+            "line_no": int(r["line_no"]),
+            "fee_line_id": lid,
+            "fee_name": r["fee_name"],
+            "amount": float(r["amount"]),
+            "currency": r["currency"],
+            "evidence_count": ev_count.get(lid, 0),
+            "evidence_refs": ev_refs.get(lid, []),
+            "mapped_to": top.get("name"),
+            "map_confidence": m.get("confidence"),
+            "need_human": bool(m.get("need_human")),
+            "suspected_duplicate": dup_lines.get(lid, []),
+        })
+
+    ledger.scanned = True
+    return {
+        "ok": True,
+        "settlement": head["settlement"],
+        "versions": head["versions"],
+        "line_count": len(rows),
+        "lines": compact,
+        "duplicate_pairs": dup.get("pairs") or [],
+        "needs_attention": {
+            "no_evidence": [c["line_no"] for c in compact if c["evidence_count"] == 0],
+            "low_confidence": [c["line_no"] for c in compact if c["need_human"]],
+            "duplicates": [c["line_no"] for c in compact if c["suspected_duplicate"]],
+        },
+        "steps": steps,
+        "next": "逐条 record_finding 登记问题，然后 build_review_draft 生成待确认草稿",
+    }
+
+
+def other_line_no(pair: dict, lid: str) -> int:
+    """一对疑似重复里，取"另一行"的行号。"""
+    for ln in pair["lines"]:
+        if ln["fee_line_id"] != lid:
+            return int(ln["line_no"])
+    return int(pair["lines"][0]["line_no"])
+
+
 async def _record_finding(conn: asyncpg.Connection, ledger: Ledger, args: dict) -> dict:
     refs = args.get("evidence_refs") or []
     if not refs:
@@ -451,21 +623,27 @@ async def _build_review_draft(conn: asyncpg.Connection, ledger: Ledger, args: di
     }
 
     draft_id = str(uuid.uuid4())
+    # 关键改动（提示词 7 第 3 条）：这里只写 preview，不写 draft。
+    # preview 是一个"已生成、未确认"的存在形态——数据在库里可追溯，
+    # 但它没有任何下游效力，必须由人点确认才转成 draft / needs_review。
     await conn.execute(
         """INSERT INTO review_draft (id, settlement_id, version_id, status, summary,
                                      lines_total, lines_gap, findings_total)
-           VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8)""",
-        draft_id, ledger.settlement_id, ledger.version_id, status,
+           VALUES ($1,$2,$3,'preview',$4::jsonb,$5,$6,$7)""",
+        draft_id, ledger.settlement_id, ledger.version_id,
         json.dumps(summary, ensure_ascii=False), len(items), gap, len(findings),
     )
     ledger.draft_id = draft_id
-    ledger.draft_stats = {"status": status, "lines": len(items),
+    ledger.awaiting_confirmation = True
+    ledger.draft_stats = {"status": "preview", "lines": len(items),
                           "gap": gap, "findings": len(findings)}
     # 只回摘要，不回整份 summary：把草稿全文塞回上下文没有意义，页面会去读库
-    return {"ok": True, "draft_id": draft_id, "status": status,
+    return {"ok": True, "draft_id": draft_id, "status": "preview",
+            "awaiting_confirmation": True,
             "lines_total": len(items), "lines_gap": gap,
             "findings": len(findings),
-            "note": "草稿已生成，等待人工复核；系统不提供确认/审批能力"}
+            "note": "草稿已生成但尚未确认：需要人工在页面上核对并点「确认草稿」。"
+                    "系统不提供确认/审批能力，这一步必须由人做。"}
 
 
 async def _escalate_to_human(conn: asyncpg.Connection, ledger: Ledger, args: dict) -> dict:
@@ -507,7 +685,8 @@ def _ids_of(args: dict, ledger: Ledger) -> tuple[list[str], dict | None]:
     return ids, None
 
 
-async def execute(name: str, args: dict, ledger: Ledger) -> dict:
+async def _dispatch(name: str, args: dict, ledger: Ledger,
+                    round_no: int = 0, log=None) -> dict:
     """执行一个工具。所有异常都转成结构化返回，不向上抛。
 
     为什么要吞异常：工具报错是智能体的正常输入（比如"还没映射完"），
@@ -516,6 +695,18 @@ async def execute(name: str, args: dict, ledger: Ledger) -> dict:
     """
     if name not in TOOL_NAMES:
         return {"ok": False, "code": "E5002", "message": f"未知工具 {name}"}
+
+    # 整单扫描已完成时，拒绝重复搬运数据。
+    # 实测里模型在 scan 之后又把 list_fee_lines / map / check_duplicates 重跑了一遍，
+    # 5 轮预算被白吃掉 2 轮，最后没轮到生成草稿。这里直接把重复调用挡回去，
+    # 并在 message 里告诉它下一步该干什么——拒绝也要给方向，否则模型会换个工具再试。
+    if ledger.scanned and name in ("scan_settlement", "list_fee_lines",
+                                   "map_service_item", "check_duplicates"):
+        return {"ok": False, "code": "E5009",
+                "message": f"{name} 属于重复调用：第 1 轮的 scan_settlement 已经拿齐"
+                           "单据、费用行、证据、映射与查重结果。",
+                "next": "直接逐条 record_finding 登记问题，然后 build_review_draft。"
+                        "需要某一行的证据细节时再单独调 get_evidence。"}
 
     try:
         async with db.pool().acquire() as conn:
@@ -593,6 +784,9 @@ async def execute(name: str, args: dict, ledger: Ledger) -> dict:
                 ledger.duplicates_checked = True
                 return {"ok": True, **data}
 
+            if name == "scan_settlement":
+                return await _scan_settlement(conn, ledger, args, round_no, log)
+
             if name == "record_finding":
                 return {"ok": True, **await _record_finding(conn, ledger, args)}
 
@@ -613,6 +807,34 @@ async def execute(name: str, args: dict, ledger: Ledger) -> dict:
                 "message": f"工具执行异常：{type(e).__name__}: {e}"}
 
 
+def _brief(result: dict) -> str:
+    """一句话结果摘要。日志、前端轨迹、事件推送都用它，避免把整段 JSON 推到界面上。"""
+    if not result.get("ok"):
+        return result.get("message") or result.get("code") or "失败"
+    if "hits" in result:
+        return f"命中 {len(result['hits'])} 段材料"
+    if "line_count" in result:
+        return f"{result['line_count']} 行费用，疑似重复 {len(result.get('duplicate_pairs') or [])} 组"
+    if "lines" in result:
+        return f"{result.get('count')} 行费用"
+    if "candidates" in result:
+        top = (result["candidates"] or [{}])[0]
+        return f"{top.get('name', '无候选')}（{result.get('confidence')}）"
+    if "suspected_pairs" in result:
+        return f"疑似重复 {result['suspected_pairs']} 组"
+    if "draft_id" in result:
+        return f"草稿待确认，缺项 {result.get('lines_gap')} 行"
+    if "escalation_id" in result:
+        return "已转人工"
+    if "finding_id" in result:
+        return "已登记"
+    if "count" in result:
+        return f"{result['count']} 条"
+    if "missing" in result:
+        return "缺少前置步骤：" + "；".join(result["missing"])[:80]
+    return "完成"
+
+
 def dump_result(result: dict) -> str:
     """把工具结果序列化给模型，超长截断。
 
@@ -623,3 +845,63 @@ def dump_result(result: dict) -> str:
     if len(text) <= MAX_RESULT_CHARS:
         return text
     return text[:MAX_RESULT_CHARS] + f"...（结果过长，已截断，原长 {len(text)} 字符）"
+
+
+# =============================================================================
+# 四、统一执行入口（带轨迹记录）
+# =============================================================================
+Log = "Callable[[int, str, dict, dict, int, int, str | None], Awaitable[None]]"
+
+
+async def execute(name: str, args: dict, ledger: Ledger,
+                  round_no: int = 0, log=None) -> dict:
+    """执行工具，并把它写进 tool_call。
+
+    日志集中在这里而不是散在调用点，是因为"每次工具调用都要留痕"这件事
+    一旦靠调用方自觉，迟早会漏一处；漏掉的那一处正好是审计要用的那一条。
+
+    序号规则：父调用先占号，复合技能内部的子调用取后续号。
+    按 seq 排序时父在前、子在后，日志层级关系一眼可见。
+    """
+    seq = ledger.next_seq()
+    t0 = time.perf_counter()
+    result = await _dispatch(name, args, ledger, round_no, log)
+    ms = int((time.perf_counter() - t0) * 1000)
+    ledger.last_ms = ms
+    if log:
+        await log(seq, name, args, result, ms, round_no, None)
+    return result
+
+
+# =============================================================================
+# 五、人工确认（不在工具清单里 —— 模型不能自己确认）
+# =============================================================================
+async def confirm_draft(draft_id: str, user: str | None) -> dict:
+    """把 preview 草稿转成正式草稿。
+
+    这个函数**没有注册成工具**，模型调用不到它。只有 HTTP 接口能触发，
+    也就只有人点按钮才会执行——这正是"确认权在人"的实现方式：
+    不是靠提示词禁止模型确认，而是让"确认"这个动作不在它可触达的范围内。
+
+    状态推导：有缺项或有未决问题 → needs_review；否则 draft。
+    注意两个状态都不是"已确认/已审批"，本系统没有那种状态。
+    """
+    async with db.pool().acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT id, status, lines_gap, findings_total FROM review_draft
+               WHERE id = $1""",
+            draft_id,
+        )
+        if not row:
+            raise AppError("E4007", f"draft_id={draft_id}")
+        if row["status"] != "preview":
+            raise AppError("E4012", f"当前状态 {row['status']}，只有 preview 可以确认")
+
+        target = "needs_review" if (row["lines_gap"] or row["findings_total"]) else "draft"
+        await conn.execute(
+            """UPDATE review_draft
+                  SET status = $2, confirmed_by = $3, confirmed_at = now()
+                WHERE id = $1""",
+            draft_id, target, user,
+        )
+    return {"draft_id": draft_id, "status": target, "confirmed_by": user}

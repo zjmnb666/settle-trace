@@ -116,9 +116,12 @@ class Settings:
     max_upload_bytes: int = _int("MAX_UPLOAD_BYTES", 10 * 1024 * 1024)
 
     # ---------- 智能体 ----------
-    # 单份单据最多允许的"模型-工具"往返次数。设上限的理由不是省钱，
-    # 而是防止模型在一个死循环里把单据反复分析到超时（见 repeat_limit）。
-    agent_max_steps: int = _int("AGENT_MAX_STEPS", 12)
+    # 模型决策轮数上限（提示词 7 要求 5 轮）。一轮 = 一次模型决策 + 其间的工具执行。
+    # 压缩到 5 轮靠的是 scan_settlement 这个复合技能：整单取证/映射/查重一轮完成，
+    # 否则 8 行单据光读数据就要 5 轮，轮次全花在搬运上。
+    agent_max_rounds: int = _int("AGENT_MAX_ROUNDS", 5)
+    # 兼容旧变量名（老 .env 里可能还写着 AGENT_MAX_STEPS）
+    agent_max_steps: int = _int("AGENT_MAX_STEPS", _int("AGENT_MAX_ROUNDS", 5))
     # 同一工具 + 同一参数重复调用达到该次数即中止，视为模型在打转
     agent_repeat_limit: int = _int("AGENT_REPEAT_LIMIT", 3)
 

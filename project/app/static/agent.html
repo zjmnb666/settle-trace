@@ -105,6 +105,19 @@
   </div>
 
   <div class="card">
+    <h2>直接提问</h2>
+    <p class="muted" style="margin-top:-6px">
+      只问口径时不会碰单据（例如"滞留费怎么算"）；问到具体行时它会自己去取证。
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input id="q" placeholder="例如：滞留费的计费口径是什么？ 第 5 行和第 6 行算重复吗？"
+             style="flex:1;min-width:320px;padding:7px 10px;border:1px solid var(--c-line);border-radius:6px;font:inherit;font-size:13px">
+      <button class="primary" id="askBtn">提问</button>
+    </div>
+    <div id="answer" class="muted" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <h2 style="margin:0">工具调用轨迹</h2>
       <div class="sp"></div>
@@ -122,6 +135,7 @@
       <div class="sp"></div>
       <span class="muted" id="draftMeta"></span>
     </div>
+    <div class="banner-note hide" id="confirmBar" style="margin-bottom:12px"></div>
     <div class="stats" id="draftStats"></div>
     <table>
       <thead>
@@ -216,7 +230,7 @@ function addTrace(row) {
   const div = document.createElement('div');
   div.className = 'row';
   div.innerHTML = `
-    <span class="n">${row.n}</span>
+    <span class="n">R${row.round || '?'}</span>
     <span class="tool">${esc(row.tool)}</span>
     <span class="res ${row.ok ? 'ok' : 'bad'}">${esc(row.preview || (row.ok ? '完成' : '失败'))}</span>
     <span class="ms">${row.ms != null ? row.ms + 'ms' : ''}</span>`;
@@ -227,11 +241,47 @@ function addTrace(row) {
 function renderDraft(d) {
   const draft = d.draft, s = draft.summary || {};
   document.getElementById('draftCard').classList.remove('hide');
-  document.getElementById('draftStatus').innerHTML = draft.status === 'draft'
-    ? '<span class="tag ok">可直接复核</span>'
-    : '<span class="tag gap">需人工复核</span>';
+  const isPreview = draft.status === 'preview';
+  const statusTag = {
+    preview: '<span class="tag warn">待确认（尚未生效）</span>',
+    draft: '<span class="tag ok">已确认 · 可直接复核</span>',
+    needs_review: '<span class="tag gap">已确认 · 含缺项/疑点</span>',
+    superseded: '<span class="tag grey">已被新版本取代</span>',
+  }[draft.status] || '<span class="tag grey">' + esc(draft.status) + '</span>';
+  document.getElementById('draftStatus').innerHTML = statusTag;
   document.getElementById('draftMeta').textContent =
-    '草稿 ' + draft.id.slice(0, 8) + ' · ' + draft.created_at;
+    '草稿 ' + draft.id.slice(0, 8) + ' · ' + (draft.created_at || '待确认');
+
+  // 确认区：只有 preview 才显示按钮。确认动作由人触发，模型没有这个能力。
+  const bar = document.getElementById('confirmBar');
+  if (isPreview) {
+    bar.classList.remove('hide');
+    bar.innerHTML = `
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="muted">草稿已生成，但尚未确认——确认前它只是预览，不产生任何效力。</span>
+        <button class="primary" id="confirmBtn" data-draft="${draft.id}">确认草稿</button>
+      </div>`;
+    document.getElementById('confirmBtn').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      if (!confirm('确认这份核对草稿？\n\n确认后状态变为「已确认 · 含缺项/疑点」或「已确认 · 可直接复核」。' +
+                   '注意：这只是确认"草稿内容已复核"，不等于结算单已确认或已审批。')) return;
+      btn.disabled = true;
+      try {
+        await api('/api/agent/drafts/' + draft.id + '/confirm', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: 'web' }),
+        });
+        await loadLatest(sel.value);
+        showError('');
+      } catch (e) {
+        showError('确认失败：' + e.message);
+        btn.disabled = false;
+      }
+    });
+  } else {
+    bar.classList.add('hide');
+    bar.innerHTML = '';
+  }
   document.getElementById('draftStats').innerHTML = `
     <div class="stat"><div class="k">费用行</div><div class="v">${draft.lines_total}</div></div>
     <div class="stat"><div class="k">缺项</div><div class="v">${draft.lines_gap}</div></div>
@@ -285,17 +335,33 @@ runBtn.addEventListener('click', async () => {
         'run ' + data.run_id.slice(0, 8) + ' · ' + data.model;
     } else if (event === 'step') {
       toolCount = data.n;
-      addTrace({ n: data.n, tool: data.tool, ok: true, preview: '调用中…' });
+      addTrace({ round: data.round, n: data.n, tool: data.tool, ok: true, preview: '调用中…' });
     } else if (event === 'tool_result') {
       const last = traceEl.lastElementChild;
       if (last) last.remove();
-      addTrace({ n: toolCount, tool: data.tool, ok: data.ok, preview: data.preview, ms: data.ms });
+      addTrace({ round: data.round, n: data.n || toolCount, tool: data.tool,
+                 ok: data.ok, preview: data.preview, ms: data.ms });
+    } else if (event === 'draft_preview') {
+      // 草稿全文随事件推过来，先渲染出来给人看；findings 再补拉一次
+      renderDraft({
+        draft: {
+          id: data.draft_id, status: data.status, summary: data.summary,
+          lines_total: data.lines_total, lines_gap: data.lines_gap,
+          findings_total: data.findings_total, created_at: '待确认',
+        },
+        findings: [],
+      });
+      api('/api/agent/drafts/latest?settlement_no=' + encodeURIComponent(no))
+        .then(renderDraft)
+        .catch(() => {});
     } else if (event === 'done') {
       document.getElementById('summaryCard').classList.remove('hide');
       document.getElementById('summaryText').textContent =
         (data.message || '运行结束') +
         `（共 ${data.steps} 步 / ${toolCount} 次工具调用，状态 ${data.status}）`;
-      document.getElementById('traceHint').textContent = `完成 · ${toolCount} 次调用`;
+      document.getElementById('traceHint').textContent =
+        (data.status === 'awaiting_confirmation' ? '已生成待确认草稿 · ' : '完成 · ')
+        + toolCount + ' 次调用';
       if (data.draft_id) {
         api('/api/agent/drafts/latest?settlement_no=' + encodeURIComponent(no))
           .then(renderDraft)
@@ -350,6 +416,61 @@ async function loadLatest(no) {
     renderDraft(d);
   } catch (e) { /* 没有草稿是正常情况 */ }
 }
+
+// ---- 自由提问：与核对共用轨迹面板，但答案单独显示 ----
+document.getElementById('askBtn').addEventListener('click', async () => {
+  const question = document.getElementById('q').value.trim();
+  if (!question) { showError('请先输入问题'); return; }
+  showError('');
+  const btn = document.getElementById('askBtn');
+  btn.disabled = true;
+  document.getElementById('answer').textContent = '思考中…';
+  traceEl.innerHTML = '';
+  let n = 0;
+
+  const parser = createSSEParser((event, data) => {
+    if (event === 'step') {
+      n = data.n;
+      addTrace({ round: data.round, n: data.n, tool: data.tool, ok: true, preview: '调用中…' });
+    } else if (event === 'tool_result') {
+      const last = traceEl.lastElementChild;
+      if (last) last.remove();
+      addTrace({ round: data.round, n: data.n, tool: data.tool, ok: data.ok,
+                 preview: data.preview, ms: data.ms });
+    } else if (event === 'done') {
+      document.getElementById('answer').textContent =
+        data.message || '（模型未返回文字结论，请看轨迹）';
+      document.getElementById('traceHint').textContent =
+        `完成 · ${data.rounds} 轮 / ${data.calls} 次工具调用`;
+      if (data.draft_id) loadLatest(sel.value);
+    } else if (event === 'error') {
+      showError((data.code || '') + ' ' + (data.message || '失败'));
+    }
+  });
+
+  try {
+    const resp = await fetch('/api/agent/ask', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question, user_id: 'web' }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error((err.code ? err.code + ' ' : '') + (err.message || '请求失败'));
+    }
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder('utf-8');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parser(dec.decode(value, { stream: true }));
+    }
+  } catch (e) {
+    showError(e.message);
+    document.getElementById('answer').textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 loadSettlements().then(() => loadLatest(sel.value));
 sel.addEventListener('change', () => {

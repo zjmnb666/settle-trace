@@ -226,6 +226,35 @@ python -m app.agent_seed         # 灌虚构演示单据 JS-2026-0318
 **演示数据里刻意埋了四类问题**：第 5/6 行跨币种重复、第 7 行无凭证、第 8 行映射低置信度、
 v2 版本未确认。
 
+### 编排（阶段 5）：5 轮上限 + 待确认草稿
+
+**跑法**：先 `python -m app.agent_migrate`（会执行 `sql/agent_orchestration.sql` 补丁）。
+
+**轮次**：`AGENT_MAX_ROUNDS=5`。整单核对实测 4 轮完成
+（1 轮 `scan_settlement` + 2 轮登记问题 + 1 轮出草稿）。
+
+压缩轮次靠三件事：
+1. `scan_settlement` 复合技能：一轮跑完 读单据→读行→批量取证→批量映射→查重
+2. 扫描结果内联每行 `evidence_refs`，模型不用再单独查凭证
+3. 扫描后把搬运类工具从**工具清单**里移除（不是调用后拒绝——拒绝也浪费一轮）
+
+**草稿必须先由人确认**：
+- 模型生成的是 `status='preview'`，无任何下游效力
+- `confirm_draft()` **不在工具清单里**，模型调不到；只有
+  `POST /api/agent/drafts/{id}/confirm` 能触发
+- 确认后变为 `draft` 或 `needs_review`（这两个都不是"已确认/已审批"）
+
+**两个入口**：
+| 接口 | 用途 |
+|---|---|
+| `POST /api/agent/review` | 整单核对，产出待确认草稿 |
+| `POST /api/agent/ask` | 自由提问（只查口径 / 问某几行），**不产出草稿** |
+| `POST /api/agent/drafts/{id}/confirm` | 人工确认 |
+| `GET /api/agent/runs/latest?settlement_no=` | 上次运行的工具轨迹 |
+
+**日志表**：`agent_run`（轮数、状态）+ `tool_call`（round / via / 耗时 / 错误码）。
+`via='scan_settlement'` 表示该行是复合技能内部调用，与模型直接调用分开统计。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |

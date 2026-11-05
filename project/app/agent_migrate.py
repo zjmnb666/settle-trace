@@ -16,6 +16,7 @@ from pathlib import Path
 from .core import db
 
 SCHEMA_FILE = Path(__file__).resolve().parents[1] / "sql" / "agent_schema.sql"
+PATCH_FILE = Path(__file__).resolve().parents[1] / "sql" / "agent_orchestration.sql"
 
 
 async def main() -> int:
@@ -24,7 +25,8 @@ async def main() -> int:
     try:
         async with db.pool().acquire() as conn:
             await conn.execute(sql)
-            print("[1/2] 智能体域表结构已应用")
+            await conn.execute(PATCH_FILE.read_text(encoding="utf-8"))
+            print("[1/2] 智能体域表结构已应用（含阶段 5 编排补丁）")
             tables = await conn.fetch(
                 """SELECT table_name FROM information_schema.tables
                    WHERE table_schema='public' ORDER BY table_name"""
